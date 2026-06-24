@@ -874,7 +874,7 @@ def _resolve_scoring(config: Dict) -> Dict:
 
     return {
         'min_relevance': _num('min_relevance', MIN_KEYWORD_ONLY_RELEVANCE),
-        'min_keyword_matches': max(1, int(_num('min_keyword_matches', 2))),
+        'min_keyword_matches': max(1, int(_num('min_keyword_matches', 1))),
         'title_match': _num('title_match', RELEVANCE_TITLE_KEYWORD_BOOST),
         'abstract_match': _num('abstract_match', RELEVANCE_SUMMARY_KEYWORD_BOOST),
         'category_match': _num('category_match', RELEVANCE_CATEGORY_MATCH_BOOST),

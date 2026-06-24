@@ -32,6 +32,11 @@ def _cfg(domains, excluded=None):
     return {"research_domains": domains, "excluded_keywords": excluded or []}
 
 
+def _cfg_strict(domains, excluded=None):
+    return {"research_domains": domains, "excluded_keywords": excluded or [],
+            "scoring": {"min_keyword_matches": 2}}
+
+
 def _score(papers, cfg):
     return search_arxiv.filter_and_score_papers(
         [dict(p) for p in papers], cfg, target_date=TARGET)
@@ -63,8 +68,7 @@ def test_short_keyword_uses_word_boundary():
 # the inclusion gate: >=2 keyword matches OR >=1 compound keyword
 # --------------------------------------------------------------------------
 def test_gate_rejects_single_ambiguous_word():
-    # ASR paper: only the ambiguous single word "alignment" matches -> reject
-    cfg = _cfg({"AI": {"keywords": ["alignment", "RLHF", "reward model"], "arxiv_categories": []}})
+    cfg = _cfg_strict({"AI": {"keywords": ["alignment", "RLHF", "reward model"], "arxiv_categories": []}})
     assert _score([_paper("InterAligner: ASR encoder alignment objectives",
                           "We study CTC alignment for speech recognition.")], cfg) == []
 
@@ -88,7 +92,7 @@ def test_gate_accepts_single_hyphenated_keyword():
 
 
 def test_gate_rejects_single_bare_token():
-    cfg = _cfg({"Bio": {"keywords": ["transposable element", "Nanopore"], "arxiv_categories": []}})
+    cfg = _cfg_strict({"Bio": {"keywords": ["transposable element", "Nanopore"], "arxiv_categories": []}})
     assert _score([_paper("Nanopore current signal denoising",
                           "A deep model for ionic current.")], cfg) == []
 
@@ -97,8 +101,8 @@ def test_gate_rejects_single_bare_token():
 # regression fixtures: the exact QC false positives must now be rejected
 # --------------------------------------------------------------------------
 def test_regression_sensor_localization_math_rejected():
-    cfg = _cfg({"Hum": {"keywords": ["localization", "humanitarian", "refugee", "forced displacement"],
-                        "arxiv_categories": []}})
+    cfg = _cfg_strict({"Hum": {"keywords": ["localization", "humanitarian", "refugee", "forced displacement"],
+                              "arxiv_categories": []}})
     assert _score([_paper("Sensor network localization has a benign landscape",
                           "Low-dimensional relaxation for sensor localization optimization.")], cfg) == []
 
@@ -108,6 +112,16 @@ def test_regression_hpc_simulation_rejected():
                           "arxiv_categories": []}})
     assert _score([_paper("GPU-accelerated electrostatic boundary element solver",
                           "A fast simulation of the boundary element method.")], cfg) == []
+
+
+def test_default_gate_admits_single_keyword():
+    # Recall-first default (min_keyword_matches=1): a single bare-token match is kept.
+    cfg = _cfg({"Bio": {"keywords": ["Nanopore"], "arxiv_categories": []}})
+    assert len(_score([_paper("Nanopore current signal denoising", "ionic current model.")], cfg)) == 1
+
+
+def test_resolve_scoring_default_min_keyword_matches_is_one():
+    assert search_arxiv._resolve_scoring({})["min_keyword_matches"] == 1
 
 
 # --------------------------------------------------------------------------
