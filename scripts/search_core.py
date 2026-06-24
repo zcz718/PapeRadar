@@ -62,7 +62,16 @@ def _build_query(config: dict, from_date: str, until_date: str) -> str:
     if not terms:
         return ""
     kw_group = "(" + " OR ".join(terms) + ")"
-    return f"{kw_group} AND createdDate>={from_date} AND createdDate<={until_date}"
+    # `createdDate` is when CORE INDEXED the record — a precise window, but on
+    # its own it surfaces old papers freshly re-deposited (e.g. a 2009 paper
+    # added this week). CORE 500s on a precise `publishedDate` range, so we
+    # additionally constrain the publication YEAR (the window's year, or both
+    # years across a Jan boundary) to keep only genuinely recent work.
+    # Note: CORE's parser wants a bracketed range; `createdDate>=x` 500s.
+    years = sorted({from_date[:4], until_date[:4]})
+    year_clause = " OR ".join(f"yearPublished:{y}" for y in years)
+    return (f"{kw_group} AND createdDate:[{from_date} TO {until_date}] "
+            f"AND ({year_clause})")
 
 
 def _date_of(result: dict) -> str:

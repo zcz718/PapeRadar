@@ -27,9 +27,16 @@ def test_graceful_skip_without_key(monkeypatch):
 def test_build_query_has_keywords_and_date_window():
     q = search_core._build_query(_cfg(), "2026-06-17", "2026-06-24")
     assert "deep learning" in q
-    assert "createdDate>=2026-06-17" in q
-    assert "createdDate<=2026-06-24" in q
+    # CORE wants a bracketed range, not >=/<= operators (which 500 the parser),
+    # plus a publication-year constraint so old re-indexed papers are excluded.
+    assert "createdDate:[2026-06-17 TO 2026-06-24]" in q
+    assert "yearPublished:2026" in q
     assert " OR " in q
+
+
+def test_build_query_spans_two_years_across_boundary():
+    q = search_core._build_query(_cfg(), "2025-12-29", "2026-01-04")
+    assert "yearPublished:2025" in q and "yearPublished:2026" in q
 
 
 def test_build_query_empty_when_no_keywords():
