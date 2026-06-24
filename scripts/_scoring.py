@@ -78,6 +78,10 @@ def calculate_relevance_score(
     paper: Dict,
     domains: Dict,
     excluded_keywords: List[str],
+    *,
+    title_boost: Optional[float] = None,
+    summary_boost: Optional[float] = None,
+    category_boost: Optional[float] = None,
 ) -> Tuple[float, Optional[str], List[str]]:
     """Score a paper against the user's `research_domains` config.
 
@@ -95,6 +99,11 @@ def calculate_relevance_score(
     The highest-scoring domain becomes `best_domain`. Ties pick the
     first-encountered (dict iteration order — Python 3.7+ stable).
     """
+    # Fall back to the tuned module defaults when no override is supplied.
+    title_boost = RELEVANCE_TITLE_KEYWORD_BOOST if title_boost is None else title_boost
+    summary_boost = RELEVANCE_SUMMARY_KEYWORD_BOOST if summary_boost is None else summary_boost
+    category_boost = RELEVANCE_CATEGORY_MATCH_BOOST if category_boost is None else category_boost
+
     title = paper.get('title', '').lower()
     summary = paper.get('summary', '').lower() if 'summary' in paper else paper.get('abstract', '').lower()
     categories = set(paper.get('categories', []))
@@ -127,17 +136,17 @@ def calculate_relevance_score(
                 in_title = keyword_lower in title
                 in_summary = keyword_lower in summary
             if in_title:
-                score += RELEVANCE_TITLE_KEYWORD_BOOST
+                score += title_boost
                 domain_matched_keywords.append(keyword)
             elif in_summary:
-                score += RELEVANCE_SUMMARY_KEYWORD_BOOST
+                score += summary_boost
                 domain_matched_keywords.append(keyword)
 
         # Category matching
         domain_categories = domain_config.get('arxiv_categories', [])
         for cat in domain_categories:
             if cat in categories:
-                score += RELEVANCE_CATEGORY_MATCH_BOOST
+                score += category_boost
                 domain_matched_keywords.append(cat)
 
         if score > max_score:
@@ -178,20 +187,23 @@ def _resolve_reference_now(
 def calculate_recency_score(
     published_date: Optional[datetime],
     reference_date: Optional[datetime] = None,
+    *,
+    thresholds: Optional[List[Tuple[int, float]]] = None,
 ) -> float:
     """Bucket the days-since-publish into a recency score 0..SCORE_MAX.
 
-    Buckets are configured by `RECENCY_THRESHOLDS` (default: ≤30 d → 3,
-    ≤90 d → 2, ≤180 d → 1, else 0). `reference_date` lets tests pin
+    Buckets default to `RECENCY_THRESHOLDS` (≤30 d → 3, ≤90 d → 2, ≤180 d → 1,
+    else 0) but may be overridden per-run. `reference_date` lets tests pin
     "now" to a fixed timestamp.
     """
     if published_date is None:
         return 0
 
+    buckets = RECENCY_THRESHOLDS if thresholds is None else thresholds
     now = _resolve_reference_now(published_date, reference_date)
     days_diff = (now - published_date).days
 
-    for max_days, score in RECENCY_THRESHOLDS:
+    for max_days, score in buckets:
         if days_diff <= max_days:
             return score
     return RECENCY_DEFAULT
@@ -300,6 +312,8 @@ def calculate_recommendation_score(
     popularity_score: float,
     quality_score: float,
     is_hot_paper: bool = False,
+    *,
+    weights: Optional[Dict[str, float]] = None,
 ) -> float:
     """Weighted blend of the four sub-scores → 0..10 final recommendation.
 
@@ -329,7 +343,8 @@ def calculate_recommendation_score(
     # gate subtracts category boosts from.
     normalized = {k: min((v / SCORE_MAX) * 10, 10.0) for k, v in scores.items()}
 
-    weights = WEIGHTS_HOT if is_hot_paper else WEIGHTS_NORMAL
-    final_score = sum(normalized[k] * weights[k] for k in weights)
+    if weights is None:
+        weights = WEIGHTS_HOT if is_hot_paper else WEIGHTS_NORMAL
+    final_score = sum(normalized[k] * weights.get(k, 0.0) for k in scores)
 
     return round(final_score, 2)

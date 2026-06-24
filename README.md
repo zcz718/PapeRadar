@@ -137,6 +137,12 @@ to a list of venues (journals or conferences). Preprints, OpenAlex, Crossref,
 and CORE are never filtered, so nothing cutting-edge gets dropped. Leave it
 empty to disable.
 
+**Scoring (advanced).** The defaults are tuned, but an optional `scoring:` block
+lets you set them from YAML instead of editing source: `min_relevance` (the
+inclusion gate — lower to see more), the title/abstract/category match weights,
+the recency buckets, and the `weights:` that blend the final ranking. See the
+commented block in `config.example.yaml`.
+
 ### Environment variables
 
 | Variable | Needed for | Notes |

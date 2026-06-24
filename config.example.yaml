@@ -99,6 +99,29 @@ core:
   max_results: 100
 
 # ─────────────────────────────────────────────────────────────────────────
+# Scoring (advanced — optional)
+# ─────────────────────────────────────────────────────────────────────────
+# The defaults below are already tuned; uncomment `scoring:` and edit only to
+# change how papers are filtered and ranked. The values shown ARE the built-in
+# defaults, so leaving this commented behaves exactly as before. Any field you
+# omit keeps its default; any unparseable value falls back to it.
+# scoring:
+#   min_relevance: 0.5        # inclusion gate — keyword strength a paper needs
+#                             # to appear at all (lower = looser, more papers)
+#   title_match: 0.5          # score for a keyword found in the title
+#   abstract_match: 0.3       # score for a keyword found only in the abstract
+#   category_match: 1.0       # score for an arXiv-category match
+#   weights:                  # final-ranking blend for ordinary papers
+#     relevance: 0.40         # (auto-normalized if they don't sum to 1)
+#     recency: 0.20
+#     popularity: 0.30
+#     quality: 0.10
+#   recency_thresholds:       # [days_since_publish, score] buckets
+#     - [30, 3.0]
+#     - [90, 2.0]
+#     - [180, 1.0]
+
+# ─────────────────────────────────────────────────────────────────────────
 # Top-tier journal filter
 # ─────────────────────────────────────────────────────────────────────────
 # When set, PubMed and Semantic Scholar results are RESTRICTED to these

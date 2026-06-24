@@ -761,6 +761,63 @@ def _extra_source_enabled(spec: Dict, config: Dict) -> bool:
     return bool(os.environ.get(spec["key_env"], "").strip())
 
 
+def _resolve_scoring(config: Dict) -> Dict:
+    """Merge the optional `scoring:` config block onto the tuned defaults.
+
+    Exposes the otherwise-hardcoded scoring dials so a user can tune filtering
+    and ranking from their YAML. Any bad value falls back to the default for
+    that field. Returns: min_relevance, title_match, abstract_match,
+    category_match, weights (normalized, ordinary-paper blend), and
+    recency_thresholds (None → use the built-in buckets).
+    """
+    sc = config.get('scoring') or {}
+    if not isinstance(sc, dict):
+        sc = {}
+
+    def _num(key, default):
+        try:
+            return float(sc[key])
+        except (KeyError, TypeError, ValueError):
+            return default
+
+    # Ranking weights: merge any provided keys onto WEIGHTS_NORMAL, then
+    # normalize to sum 1.0 so a partial or off-scale override keeps the 0–10
+    # ceiling intact.
+    weights = dict(WEIGHTS_NORMAL)
+    user_w = sc.get('weights')
+    if isinstance(user_w, dict):
+        for k in weights:
+            try:
+                weights[k] = float(user_w[k])
+            except (KeyError, TypeError, ValueError):
+                pass
+    total = sum(weights.values())
+    weights = {k: v / total for k, v in weights.items()} if total > 0 else dict(WEIGHTS_NORMAL)
+
+    # Recency buckets: a list of [days, score] pairs, sorted ascending by days.
+    thresholds = None
+    raw_th = sc.get('recency_thresholds')
+    if isinstance(raw_th, list):
+        parsed = []
+        for item in raw_th:
+            try:
+                days, score = item
+                parsed.append((int(days), float(score)))
+            except (TypeError, ValueError):
+                continue
+        if parsed:
+            thresholds = sorted(parsed, key=lambda x: x[0])
+
+    return {
+        'min_relevance': _num('min_relevance', MIN_KEYWORD_ONLY_RELEVANCE),
+        'title_match': _num('title_match', RELEVANCE_TITLE_KEYWORD_BOOST),
+        'abstract_match': _num('abstract_match', RELEVANCE_SUMMARY_KEYWORD_BOOST),
+        'category_match': _num('category_match', RELEVANCE_CATEGORY_MATCH_BOOST),
+        'weights': weights,
+        'recency_thresholds': thresholds,
+    }
+
+
 def filter_and_score_papers(
     papers: List[Dict],
     config: Dict,
@@ -781,6 +838,7 @@ def filter_and_score_papers(
     """
     domains = config.get('research_domains', {})
     excluded_keywords = config.get('excluded_keywords', [])
+    sc = _resolve_scoring(config)  # effective scoring dials (config-overridable)
 
     scored_papers = []
 
@@ -795,7 +853,10 @@ def filter_and_score_papers(
 
         # Compute relevance
         relevance, matched_domain, matched_keywords = calculate_relevance_score(
-            paper, domains, excluded_keywords
+            paper, domains, excluded_keywords,
+            title_boost=sc['title_match'],
+            summary_boost=sc['abstract_match'],
+            category_boost=sc['category_match'],
         )
 
         # Scoring is source-neutral: a paper is ranked by how well it matches
@@ -810,13 +871,14 @@ def filter_and_score_papers(
         # is sufficient — prevents papers that matched only a category + 1 incidental
         # abstract word from being included.
         n_cat_matches = sum(1 for kw in matched_keywords if ARXIV_CATEGORY_PATTERN.match(kw))
-        keyword_only_score = relevance - n_cat_matches * RELEVANCE_CATEGORY_MATCH_BOOST
-        if keyword_only_score < MIN_KEYWORD_ONLY_RELEVANCE:
+        keyword_only_score = relevance - n_cat_matches * sc['category_match']
+        if keyword_only_score < sc['min_relevance']:
             continue
 
         # Compute recency
         if 'published_date' in paper:
-            recency = calculate_recency_score(paper.get('published_date'), target_date)
+            recency = calculate_recency_score(paper.get('published_date'), target_date,
+                                              thresholds=sc['recency_thresholds'])
         else:
             # For Semantic Scholar papers, fall back to the publicationDate field
             pub_date_str = paper.get('publicationDate')
@@ -828,7 +890,8 @@ def filter_and_score_papers(
                         break
                     except (ValueError, TypeError):
                         continue
-                recency = calculate_recency_score(pub_date, target_date) if pub_date else 0
+                recency = calculate_recency_score(
+                    pub_date, target_date, thresholds=sc['recency_thresholds']) if pub_date else 0
             else:
                 recency = 0
 
@@ -867,7 +930,10 @@ def filter_and_score_papers(
         # priority topic's matches get a higher recommendation score.
         weighted_relevance = relevance * _priority_weight(domains, matched_domain)
         recommendation_score = calculate_recommendation_score(
-            weighted_relevance, recency, popularity, quality, is_hot_paper_batch
+            weighted_relevance, recency, popularity, quality, is_hot_paper_batch,
+            # User weights tune the ordinary-paper blend; the high-citation
+            # ("hot") batch keeps its popularity-weighted blend.
+            weights=None if is_hot_paper_batch else sc['weights'],
         )
 
         # Attach scoring info to the paper dict

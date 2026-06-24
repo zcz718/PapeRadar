@@ -264,3 +264,55 @@ def test_extra_source_explicit_true_scalar_form():
 def test_registry_has_three_sources():
     names = [s["name"] for s in search_arxiv._EXTRA_SOURCES]
     assert names == ["OpenAlex", "Crossref", "CORE"]
+
+
+# ---------------------------------------------------------------------------
+# Configurable scoring block (`scoring:`) — overrides the _scoring defaults
+# ---------------------------------------------------------------------------
+
+def test_resolve_scoring_defaults_when_absent():
+    sc = search_arxiv._resolve_scoring({})
+    assert sc["min_relevance"] == 0.5
+    assert sc["title_match"] == 0.5
+    assert sc["abstract_match"] == 0.3
+    assert sc["category_match"] == 1.0
+    assert sc["recency_thresholds"] is None
+    assert round(sum(sc["weights"].values()), 6) == 1.0
+
+
+def test_resolve_scoring_numeric_overrides():
+    sc = search_arxiv._resolve_scoring({"scoring": {
+        "min_relevance": 0.3, "title_match": 0.8, "abstract_match": 0.4, "category_match": 2.0}})
+    assert (sc["min_relevance"], sc["title_match"], sc["abstract_match"], sc["category_match"]) == (0.3, 0.8, 0.4, 2.0)
+
+
+def test_resolve_scoring_weights_merge_and_normalize():
+    sc = search_arxiv._resolve_scoring({"scoring": {"weights": {"recency": 0.5}}})
+    # partial override merges onto defaults, then normalizes to sum 1.0
+    assert round(sum(sc["weights"].values()), 6) == 1.0
+    assert sc["weights"]["recency"] > 0.20  # bumped above the default share
+
+
+def test_resolve_scoring_recency_thresholds_parsed_and_sorted():
+    sc = search_arxiv._resolve_scoring({"scoring": {"recency_thresholds": [[90, 2.0], [30, 3.0]]}})
+    assert sc["recency_thresholds"] == [(30, 3.0), (90, 2.0)]
+
+
+def test_resolve_scoring_garbage_falls_back():
+    sc = search_arxiv._resolve_scoring({"scoring": {"min_relevance": "x", "weights": "nope",
+                                                    "recency_thresholds": "bad"}})
+    assert sc["min_relevance"] == 0.5
+    assert round(sum(sc["weights"].values()), 6) == 1.0
+    assert sc["recency_thresholds"] is None
+
+
+def test_scoring_min_relevance_changes_inclusion():
+    from datetime import datetime
+    # Matches only in the abstract (0.3) — below the default 0.5 gate.
+    paper = {"title": "unrelated", "summary": "a deep learning study",
+             "published_date": datetime(2026, 6, 20)}
+    dom = {"research_domains": {"D": {"keywords": ["deep learning"], "arxiv_categories": [], "priority": 3}}}
+    target = datetime(2026, 6, 24)
+    assert search_arxiv.filter_and_score_papers([dict(paper)], dom, target_date=target) == []
+    loose = {**dom, "scoring": {"min_relevance": 0.3}}
+    assert len(search_arxiv.filter_and_score_papers([dict(paper)], loose, target_date=target)) == 1
