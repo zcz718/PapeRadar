@@ -771,6 +771,17 @@ def _derive_arxiv_categories_from_config(config: Dict) -> List[str]:
     return cats
 
 
+def _split_pool(unique_papers, pool_size, top_n):
+    """Candidate pool for reranking + the keyword-only fallback list.
+
+    `candidates` = top `pool_size` (>= top_n) papers, ranked. `top_papers` =
+    first `top_n` of the pool — used directly when no rerank step runs.
+    """
+    size = max(pool_size, top_n)
+    candidates = unique_papers[:size]
+    return candidates, candidates[:top_n]
+
+
 def _priority_weight(domains: Dict, domain_name: Optional[str]) -> float:
     """Per-domain `priority` (1–5) as a relevance multiplier for ranking.
 
@@ -1044,6 +1055,9 @@ def main():
                         help='Maximum number of results to fetch from arXiv')
     parser.add_argument('--top-n', type=int, default=10,
                         help='Number of top papers to return')
+    parser.add_argument('--pool-size', type=int, default=25,
+                        help='Candidate pool size emitted for the rerank step '
+                             '(>= top-n). Default 25.')
     parser.add_argument('--target-date', type=str, default=None,
                         help='Target date (YYYY-MM-DD) for filtering')
     parser.add_argument('--categories', type=str, default=None,
@@ -1308,12 +1322,12 @@ def main():
         logger.warning("No papers matched the criteria!")
         return 1
 
-    # Take the top-N papers
-    top_papers = unique_papers[:args.top_n]
+    # Candidate pool (for the rerank step) + keyword-only fallback top-N.
+    candidates, top_papers = _split_pool(unique_papers, args.pool_size, args.top_n)
 
-    # Add note_filename to each paper, matching generate_note.py's naming rules,
-    # so paperadar wikilinks can use this field directly without re-deriving it.
-    for paper in top_papers:
+    # Add note_filename to every candidate (the rerank step may promote any of
+    # them into top_papers), matching generate_note.py's naming rules.
+    for paper in candidates:
         paper['note_filename'] = title_to_note_filename(paper.get('title', ''))
 
     # Assemble output dict
@@ -1341,6 +1355,7 @@ def main():
             for name in (s['name'] for s in _EXTRA_SOURCES)
         },
         'total_unique': len(unique_papers),
+        'candidates': candidates,
         'top_papers': top_papers
     }
 

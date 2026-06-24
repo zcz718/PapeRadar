@@ -185,3 +185,18 @@ def test_core_explicit_true_enables():
 def test_openalex_default_remains_auto():
     spec = next(s for s in search_arxiv._EXTRA_SOURCES if s["name"] == "OpenAlex")
     assert spec.get("default", "auto") == "auto"
+
+
+def test_split_pool_candidates_and_topn_fallback():
+    papers = [{"id": str(i)} for i in range(30)]
+    cands, top = search_arxiv._split_pool(papers, pool_size=25, top_n=10)
+    assert len(cands) == 25
+    assert [p["id"] for p in top] == [str(i) for i in range(10)]
+    assert top == cands[:10]  # fallback is the head of the pool
+
+
+def test_split_pool_pool_size_floored_to_top_n():
+    papers = [{"id": str(i)} for i in range(30)]
+    cands, top = search_arxiv._split_pool(papers, pool_size=5, top_n=10)
+    assert len(cands) == 10  # pool can't be smaller than top_n
+    assert len(top) == 10
