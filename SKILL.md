@@ -276,6 +276,43 @@ This guard is **non-optional**. Per the project's *"sanity checks must
 fail loud"* discipline, the orchestrator does not continue when the
 top-N is empty.
 
+# Step 2.7 — Relevance rerank (semantic precision pass)
+
+Run this AFTER the Step 2 sanity guard and BEFORE Step 3. `search_arxiv.py`
+emits a deeper `candidates` pool (default 25) in `arxiv_filtered.json`; the
+keyword score provides recall, and you (the agent) provide precision by judging
+each candidate against the user's `research_brief`.
+
+1. Read `research_brief` from the config and the `candidates` array from
+   `arxiv_filtered.json` (each candidate has `id`, `title`, `abstract`,
+   `matched_domain`).
+2. For EVERY candidate, decide its relevance to the brief:
+   - `ON` — directly about the brief's topics, methods, or questions.
+   - `BORDERLINE` — adjacent or plausibly useful.
+   - `OFF` — only superficially keyword-matched; wrong domain/topic. Be strict:
+     a single generic-phrase hit ("early warning system", "simulation") in an
+     unrelated field is `OFF`.
+3. Write the verdicts to `$OUTDIR/verdicts.json` as
+   `{ "<paper id>": "ON" | "BORDERLINE" | "OFF", ... }`.
+4. Apply them:
+
+```bash
+cd "$SKILL_DIR"
+"$PY" scripts/rerank_apply.py \
+  --input arxiv_filtered.json \
+  --verdicts "$OUTDIR/verdicts.json" \
+  --top-n 10
+```
+
+This rewrites `top_papers` to the cleaned, backfilled list (ON first, then
+BORDERLINE up to 10; OFF dropped). Dropped papers are gone — they are NOT listed
+in the weekly note.
+
+**No agent available (headless run):** skip this step. `top_papers` already
+holds the keyword top-N, so Step 3 still works (at the keyword layer's
+precision). Note: agent judgment is not bit-reproducible week to week — expected
+for a human-reviewed recommender.
+
 # Step 3 — Materialize weekly knowledge notes
 
 Run this immediately after the Step 2 sanity guard. It creates the durable
