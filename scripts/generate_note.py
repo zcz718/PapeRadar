@@ -852,7 +852,7 @@ def get_vault_path(cli_vault=None):
                 return os.path.expanduser(vault_path)
     except Exception as e:
         logger.debug("Could not resolve vault from config: %s", e)
-    logger.error("No vault path specified. Set one via --vault, OBSIDIAN_VAULT_PATH, or the start-my-week config.")
+    logger.error("No vault path specified. Set one via --vault, OBSIDIAN_VAULT_PATH, or the paperadar config.")
     sys.exit(1)
 
 

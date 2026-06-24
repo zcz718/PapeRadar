@@ -1,4 +1,4 @@
 interface:
-  display_name: "Start My Week"
-  short_description: "Rank this week's biology papers and track research interests"
-  default_prompt: "Use $start-my-week to run weekly paper recommendations, inspect tracked keywords, or update research interests."
+  display_name: "Paperadar"
+  short_description: "Rank this week's papers in your field and track research interests"
+  default_prompt: "Use $paperadar to run weekly paper recommendations, inspect tracked keywords, or update research interests."

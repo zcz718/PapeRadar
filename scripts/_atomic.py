@@ -5,7 +5,7 @@ The motivation comes from two concurrent-run race conditions identified
 in DEFERRED.md item #4:
 
 1. `search_arxiv.py` writes `arxiv_filtered.json` with a plain
-   `open(...).write(json.dumps(...))`. Two `/start-my-week` runs in
+   `open(...).write(json.dumps(...))`. Two `/paperadar` runs in
    parallel can corrupt each other's output mid-write — one process
    reads a half-flushed file the other process is still writing.
 

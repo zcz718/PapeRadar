@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-init_config.py — first-run setup wizard for the start-my-week skill.
+init_config.py — first-run setup wizard for the paperadar skill.
 
 Asks the user a few questions, then writes a config.yaml to the appropriate
 location (Obsidian vault if they use Obsidian, otherwise XDG-style
-~/.config/start-my-week/config.yaml).
+~/.config/paperadar/config.yaml).
 
 Usage:
     python scripts/init_config.py            # interactive wizard
@@ -16,14 +16,13 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_DIR = SCRIPT_DIR.parent
 EXAMPLE_CONFIG = REPO_DIR / "config.example.yaml"
-STANDALONE_CONFIG = Path.home() / ".config" / "start-my-week" / "config.yaml"
+STANDALONE_CONFIG = Path.home() / ".config" / "paperadar" / "config.yaml"
 
 
 def prompt(question: str, default: str | None = None) -> str:
@@ -63,7 +62,8 @@ def detect_existing_config() -> Path | None:
 
 
 def patch_config_text(text: str, *, mode: str, vault_path: str,
-                      output_dir: str, language: str) -> str:
+                      output_dir: str, language: str,
+                      research_brief: str = "") -> str:
     """
     Minimal in-place patch of the example YAML so we don't need a YAML
     round-tripper (which would lose comments).
@@ -73,6 +73,12 @@ def patch_config_text(text: str, *, mode: str, vault_path: str,
     # language
     out = out.replace('language: "en"', f'language: "{language}"')
 
+    # research_brief (only patch when provided; leave the empty default otherwise)
+    if research_brief:
+        # YAML-escape any embedded double quotes.
+        safe = research_brief.replace('"', '\\"')
+        out = out.replace('research_brief: ""', f'research_brief: "{safe}"')
+
     # output.mode
     out = out.replace('mode: "standalone"', f'mode: "{mode}"')
 
@@ -81,7 +87,7 @@ def patch_config_text(text: str, *, mode: str, vault_path: str,
 
     # output_dir
     out = out.replace(
-        'output_dir: "~/start-my-week-output"',
+        'output_dir: "~/paperadar-output"',
         f'output_dir: "{output_dir}"',
     )
 
@@ -89,7 +95,7 @@ def patch_config_text(text: str, *, mode: str, vault_path: str,
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="First-run setup wizard for start-my-week")
+    p = argparse.ArgumentParser(description="First-run setup wizard for paperadar")
     p.add_argument("--force", action="store_true",
                    help="Overwrite an existing config without prompting")
     p.add_argument("--dry-run", action="store_true",
@@ -109,7 +115,7 @@ def main() -> int:
 
     print()
     print("┌─────────────────────────────────────────────────────────────────┐")
-    print("│  start-my-week — first-run setup                                 │")
+    print("│  paperadar — first-run setup                                    │")
     print("└─────────────────────────────────────────────────────────────────┘")
     print()
     print("This wizard will create your config file. You can re-edit it any")
@@ -136,11 +142,11 @@ def main() -> int:
 
     # Q2: output dir (only relevant for standalone)
     if use_obsidian:
-        output_dir = "~/start-my-week-output"  # not used, but write a sensible default
+        output_dir = "~/paperadar-output"  # not used, but write a sensible default
     else:
         output_dir = prompt(
             "Where should plain-markdown weekly notes go?",
-            default="~/start-my-week-output",
+            default="~/paperadar-output",
         )
 
     # Q3: Zotero
@@ -163,6 +169,15 @@ def main() -> int:
         print(f"  (treating '{lang}' as 'en')")
         lang = "en"
 
+    # Q5: research brief (optional but recommended)
+    print()
+    print("In a sentence or two, what do you work on? This 'research brief' is")
+    print("stored in your config and used to calibrate scoring (any field).")
+    print("  e.g. \"I study machine learning for protein structure prediction.\"")
+    brief = input("  Your research focus (press Enter to skip): ").strip()
+    if not brief:
+        print("  (skipped — you can add it later, or just ask the agent to)")
+
     # Build the patched config
     text = EXAMPLE_CONFIG.read_text()
     text = patch_config_text(
@@ -171,6 +186,7 @@ def main() -> int:
         vault_path=vault_path,
         output_dir=output_dir,
         language=lang,
+        research_brief=brief,
     )
 
     # Decide destination
@@ -211,7 +227,7 @@ def main() -> int:
     print("      python scripts/show_keywords.py")
     print("  • Edit the config to customise your research interests:")
     print(f"      $EDITOR {dest}")
-    print("  • In Codex, ask: \"$start-my-week Run my weekly paper recommendations.\"")
+    print("  • In Codex, ask: \"$paperadar Run my weekly paper recommendations.\"")
     print()
     return 0
 

@@ -37,6 +37,12 @@ def render_text(config: dict, source_label: str) -> str:
     lines.append(f"Research interests (loaded from: {source_label})")
     lines.append("=" * 70)
 
+    brief = (config.get("research_brief") or "").strip()
+    if brief:
+        lines.append("")
+        lines.append(f"Research brief: {brief}")
+        lines.append("-" * 70)
+
     domains = config.get("research_domains", {})
     if not domains:
         lines.append("(no research_domains defined)")

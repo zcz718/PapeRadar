@@ -1,4 +1,4 @@
-# start-my-week — research interests config example
+# paperadar — research interests config example
 #
 # Copy this file to:
 #   $OBSIDIAN_VAULT_PATH/99_System/Config/research_interests.yaml
@@ -9,11 +9,18 @@
 # To edit interactively, ask the agent (Claude Code / Codex):
 #   "show my research interests" / "add a keyword".
 #
-# This example is biology-focused (the skill's primary use case). Replace with
-# your own domains and keywords — domain names are arbitrary labels.
+# paperadar works for ANY field — the example domains below are a
+# cross-disciplinary illustration (AI/ML, AI-for-science, statistics,
+# economics). Replace them with your own topics; domain names are just labels.
 
 # Output language: "en" or "zh"
 language: "en"
+
+# A free-text description of what you work on. This is the single most useful
+# thing to set: the agent reads it to calibrate scoring, and writes it here on
+# first run so it never has to ask again. One or two sentences is plenty, e.g.
+#   "I study machine learning methods for protein structure and drug design."
+research_brief: ""
 
 # ─────────────────────────────────────────────────────────────────────────
 # Output mode
@@ -34,7 +41,7 @@ output:
 
   standalone:
     # Where plain-markdown weekly notes go. Tilde is expanded.
-    output_dir: "~/start-my-week-output"
+    output_dir: "~/paperadar-output"
 
 # Semantic Scholar API key (optional — reduces rate limiting)
 # Free key: https://www.semanticscholar.org/product/api#api-key
@@ -44,114 +51,132 @@ output:
 # (Keys are NOT stored in this YAML; use environment variables.)
 
 # ─────────────────────────────────────────────────────────────────────────
+# Sources
+# ─────────────────────────────────────────────────────────────────────────
+# arXiv and Semantic Scholar always run and already span every field.
+#
+# bio_sources controls the biomedical-only sources (bioRxiv, medRxiv, PubMed):
+#   "auto"  — enable only when your interests look biomedical (a q-bio.* arXiv
+#             category or a bio-related keyword). A CS/physics/econ user is not
+#             charged a PubMed round-trip every week.
+#   true    — always query them.
+#   false   — never query them.
+bio_sources: "auto"
+
+# OpenAlex (https://openalex.org) — ~270M works across ALL disciplines, with
+# open-access PDFs and topic tags. Needs a free API key (30-second signup).
+#   enabled: "auto"  — turn on only when OPENALEX_API_KEY is set in your env.
+#            true     — turn on (skips cleanly if the key is missing).
+#            false    — never query OpenAlex.
+# Set the key (and optional contact email) in your shell, not here:
+#   export OPENALEX_API_KEY="..."   # required
+#   export OPENALEX_EMAIL="you@example.org"   # optional, faster "polite pool"
+openalex:
+  enabled: "auto"
+  max_results: 100
+
+# ─────────────────────────────────────────────────────────────────────────
 # Top-tier journal filter
 # ─────────────────────────────────────────────────────────────────────────
 # When set, PubMed and Semantic Scholar results are RESTRICTED to these
-# journals. Preprints (arXiv / bioRxiv / medRxiv) are always included.
-# Leave empty (or omit) to disable the filter.
-# Use exact PubMed journal names or NLM abbreviations.
+# venues. Preprints (arXiv / bioRxiv / medRxiv) are always included.
+# Leave empty (or omit) to disable the filter. Mix journals and conferences
+# to taste; use exact PubMed names / NLM abbreviations for PubMed matches.
 prioritize_journals:
   - "Nature"
   - "Science"
   - "Cell"
   - "Nature Methods"
-  - "Nature Genetics"
-  - "Nature Biotechnology"
   - "Nature Communications"
-  - "Nature Cell Biology"
-  - "Nature Structural & Molecular Biology"
-  - "Cell Reports"
-  - "Molecular Cell"
-  - "Cell Stem Cell"
-  - "eLife"
-  - "Genome Research"
-  - "Genome Biology"
-  - "Nucleic Acids Research"
   - "Proc Natl Acad Sci U S A"     # PNAS (NLM abbreviation)
   - "Science Advances"
-  - "PLoS Biology"
+  - "eLife"
+  - "Physical Review Letters"
+  - "Physical Review X"
+  - "Journal of Machine Learning Research"
+  - "NeurIPS"
+  - "ICML"
+  - "ICLR"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Research domains
 # ─────────────────────────────────────────────────────────────────────────
-# These are EXAMPLE domains to show the structure — generic biology areas,
-# not anyone's specific research. Replace them with your own topics; the
-# domain names are arbitrary labels and `priority` (1–5) weights the score.
+# EXAMPLE domains showing the structure — replace with your own. Domain names
+# are arbitrary labels; `priority` (1–5) weights the score. `arxiv_categories`
+# both controls which arXiv papers are fetched (paperadar uses the union of all
+# categories below) and adds a relevance boost when a paper matches.
 research_domains:
 
-  "Genomics & Genome Biology":
-    keywords:
-      - "genome"
-      - "genomics"
-      - "genome assembly"
-      - "structural variant"
-      - "variant calling"
-      - "comparative genomics"
-      - "population genetics"
-      - "GWAS"
-    arxiv_categories:
-      - "q-bio.GN"
-      - "q-bio.PE"
-    priority: 4
-
-  "Gene Regulation & Epigenetics":
-    keywords:
-      - "transcription factor"
-      - "enhancer"
-      - "promoter"
-      - "chromatin accessibility"
-      - "DNA methylation"
-      - "histone modification"
-      - "ATAC-seq"
-      - "ChIP-seq"
-      - "gene regulation"
-    arxiv_categories:
-      - "q-bio.GN"
-      - "q-bio.MN"
-    priority: 4
-
-  "Single-cell Biology":
-    keywords:
-      - "single-cell"
-      - "scRNA-seq"
-      - "single-nucleus"
-      - "spatial transcriptomics"
-      - "cell atlas"
-      - "cell type"
-      - "trajectory inference"
-    arxiv_categories:
-      - "q-bio.GN"
-      - "q-bio.QM"
-      - "q-bio.CB"
-    priority: 3
-
-  "Computational Biology & Methods":
-    keywords:
-      - "differential expression"
-      - "sequence alignment"
-      - "bioinformatics pipeline"
-      - "benchmark"
-      - "statistical model"
-      - "read mapping"
-      - "quality control"
-    arxiv_categories:
-      - "q-bio.QM"
-      - "q-bio.GN"
-    priority: 3
-
-  "Machine Learning for Biology":
+  "AI & Machine Learning":
     keywords:
       - "deep learning"
+      - "large language model"
       - "foundation model"
-      - "sequence model"
-      - "protein structure prediction"
+      - "reinforcement learning"
       - "representation learning"
-      - "sequence-to-function"
+      - "transformer"
+      - "diffusion model"
     arxiv_categories:
       - "cs.LG"
-      - "q-bio.GN"
-      - "q-bio.QM"
+      - "cs.AI"
+      - "cs.CL"
+      - "cs.CV"
+    priority: 5
+
+  "AI for Science":
+    keywords:
+      - "scientific discovery"
+      - "neural operator"
+      - "physics-informed"
+      - "molecular design"
+      - "materials discovery"
+      - "climate modeling"
+      - "surrogate model"
+    arxiv_categories:
+      - "cs.LG"
+      - "physics.comp-ph"
+      - "cond-mat.mtrl-sci"
+      - "stat.ML"
+    priority: 4
+
+  "Statistics & Causal Inference":
+    keywords:
+      - "causal inference"
+      - "Bayesian inference"
+      - "variational inference"
+      - "uncertainty quantification"
+      - "conformal prediction"
+      - "experimental design"
+    arxiv_categories:
+      - "stat.ML"
+      - "stat.ME"
+      - "math.ST"
+    priority: 3
+
+  "Computational Economics":
+    keywords:
+      - "mechanism design"
+      - "auction theory"
+      - "game theory"
+      - "market design"
+      - "algorithmic economics"
+    arxiv_categories:
+      - "econ.GN"
+      - "cs.GT"
     priority: 2
+
+  # Uncomment and adapt if your work is biology-related — note the q-bio.*
+  # categories, which also flip bio_sources on under "auto".
+  # "Computational Biology":
+  #   keywords:
+  #     - "single-cell"
+  #     - "genomics"
+  #     - "gene regulation"
+  #     - "protein structure"
+  #   arxiv_categories:
+  #     - "q-bio.QM"
+  #     - "q-bio.GN"
+  #   priority: 3
 
 # Excluded keywords — papers whose title/abstract contain any of these are filtered out
 excluded_keywords:

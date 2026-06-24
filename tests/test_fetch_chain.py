@@ -412,7 +412,7 @@ class TestBiorxiv:
         # `tempfile.gettempdir()/biorxiv_<doi>.pdf` (path is a function
         # of the DOI, not test isolation), so a test that uses a real
         # DOI will clobber any in-flight cached PDF for that paper —
-        # including the fulltext another /start-my-week run just
+        # including the fulltext another /paperadar run just
         # fetched. We hit this exact corruption on 2026-05-26 and lost
         # the cached PDF for a real paper another run had just fetched.
         router = _HttpRouter([("biorxiv.org", (200, FAKE_PDF_BYTES))])

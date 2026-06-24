@@ -503,7 +503,7 @@ def _download_pdf_url(url, paper, pdf_drop_dir="", vault_path=""):
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "Mozilla/5.0 start-my-week/1.0",
+            "User-Agent": "Mozilla/5.0 paperadar/1.0",
             "Accept": "application/pdf,*/*",
         },
     )

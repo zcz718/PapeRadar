@@ -153,3 +153,48 @@ def test_scan_notes_directory_uses_vault_root_for_relative_paths(tmp_path):
 
     assert len(notes) == 1
     assert notes[0]["path"] == "custom/papers/domain-a/Example_Note.md"
+
+
+# ---------------------------------------------------------------------------
+# paperadar additions: research_brief passthrough + bio_sources gating
+# ---------------------------------------------------------------------------
+
+def test_config_with_research_brief_loads_unchanged(tmp_path):
+    """A new top-level research_brief key survives load_research_config()."""
+    import yaml
+    cfg = {
+        "research_brief": "I study ML for protein structure prediction.",
+        "research_domains": {
+            "ML": {"keywords": ["deep learning"], "arxiv_categories": ["cs.LG"], "priority": 3}
+        },
+    }
+    path = tmp_path / "research_interests.yaml"
+    path.write_text(yaml.dump(cfg), encoding="utf-8")
+    loaded = search_arxiv.load_research_config(str(path))
+    assert loaded.get("research_brief") == "I study ML for protein structure prediction."
+    assert "ML" in loaded.get("research_domains", {})
+
+
+def test_bio_sources_auto_enabled_for_qbio_category():
+    config = {"research_domains": {"G": {"keywords": ["x"], "arxiv_categories": ["q-bio.GN"]}}}
+    assert search_arxiv._bio_sources_enabled(config) is True
+
+
+def test_bio_sources_auto_enabled_for_bio_keyword():
+    config = {"research_domains": {"G": {"keywords": ["chromatin accessibility"], "arxiv_categories": ["cs.LG"]}}}
+    assert search_arxiv._bio_sources_enabled(config) is True
+
+
+def test_bio_sources_auto_disabled_for_non_bio_config():
+    config = {"research_domains": {"ML": {"keywords": ["deep learning", "transformer"], "arxiv_categories": ["cs.LG"]}}}
+    assert search_arxiv._bio_sources_enabled(config) is False
+
+
+def test_bio_sources_explicit_true_overrides_auto():
+    config = {"bio_sources": True, "research_domains": {"ML": {"keywords": ["deep learning"], "arxiv_categories": ["cs.LG"]}}}
+    assert search_arxiv._bio_sources_enabled(config) is True
+
+
+def test_bio_sources_explicit_false_overrides_auto():
+    config = {"bio_sources": False, "research_domains": {"G": {"keywords": ["genome"], "arxiv_categories": ["q-bio.GN"]}}}
+    assert search_arxiv._bio_sources_enabled(config) is False

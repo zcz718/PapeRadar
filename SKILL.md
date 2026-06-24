@@ -1,62 +1,94 @@
 ---
-name: start-my-week
-description: Biology paper weekly recommendations — searches arXiv (q-bio), bioRxiv, medRxiv, PubMed, Semantic Scholar and writes a scored weekly note. Supports Obsidian (wikilinks, vault) and standalone plain-Markdown modes.
+name: paperadar
+description: Weekly research-paper recommendations for any field — searches arXiv, Semantic Scholar, OpenAlex (cross-disciplinary), and optionally bioRxiv/medRxiv/PubMed, scores them against your research interests, and writes a ranked weekly note. Supports Obsidian (wikilinks, vault) and standalone plain-Markdown modes.
 ---
 
-# First run — configuration wizard
+# First run — capture the user's research focus
 
-**Before doing anything else**, check whether a config file exists at any of
+**Before doing anything else**, check whether a config file exists at one of
 these paths (in order):
 
 1. `$OBSIDIAN_VAULT_PATH/99_System/Config/research_interests.yaml`
-2. `~/.config/start-my-week/config.yaml`
+2. `~/.config/paperadar/config.yaml`
 
-If a config is found, **check that it has the `prioritize_journals` key**. If it's
-missing (old config from before this feature was added), patch it in now — either
-add the block from `config.example.yaml` yourself, or tell the user:
+### If a config IS found
 
-> "Your config is missing the `prioritize_journals` list — PubMed and Semantic
-> Scholar will return papers from any journal. Would you like me to add the
-> top-tier journal filter (Nature, Science, Cell, etc.)?"
+Load it and read the `research_brief` field.
 
-If they agree, append the `prioritize_journals` block from `config.example.yaml`
-to their existing config and also add `output.mode: "obsidian"` if not present.
+- **`research_brief` is present and non-empty** → onboarding is already done.
+  **Do not re-ask anything.** This is the whole point of storing the brief in
+  the YAML: the user's focus is persisted, so every later run reads it silently.
+  Just note the brief to yourself (it calibrates how you read the results) and
+  go straight to the run. Do *not* print a setup banner.
+- **`research_brief` is absent or empty** (an older config) → offer once, don't force:
+  > "Your config doesn't have a research brief yet — one or two sentences about
+  > what you work on lets me calibrate scoring. Want to add one? (Say 'skip' to
+  > use the config as-is.)"
 
----
+  If they give a brief, add a `research_brief: "<their words>"` line near the top
+  of their YAML and stop asking on future runs. If they skip, proceed unchanged.
 
-If **no config is found**, run the wizard conversationally right now:
+While you're in an old config, also check for the `prioritize_journals`,
+`bio_sources`, and `openalex` keys; if any are missing, you may add the
+corresponding block from `config.example.yaml` (the defaults are safe and
+field-agnostic). This is optional housekeeping — don't block the run on it.
 
-> "It looks like this is your first time running start-my-week. Let me set it up
-> for you — I'll ask a few quick questions."
->
-> 1. **Do you use Obsidian as your note-taking app?** (yes/no, default no)
->    - If yes → ask for the vault path (or read `$OBSIDIAN_VAULT_PATH`).
->      Config will be written to `<vault>/99_System/Config/research_interests.yaml`.
->    - If no → config goes to `~/.config/start-my-week/config.yaml`.
->
-> 2. **Do you use Zotero for references?** (yes/no, default no)
->    - If yes → explain that credentials come from env vars, not the YAML:
->      `export ZOTERO_API_KEY="..."` and `export ZOTERO_USER_ID="..."` in
->      `~/.zshrc`. The skill will auto-detect them.
->    - If no → Zotero step is silently skipped.
->
-> 3. **(Standalone only) Where should weekly notes be saved?**
->    Default: `~/start-my-week-output/`. Create the directory if it doesn't exist.
->
-> 4. **What language for the summaries?** (en / zh, default en)
+### If NO config is found — run the wizard conversationally
 
-After gathering answers, **write the config yourself** by copying
-`config.example.yaml` from the skill folder and patching:
-- `output.mode` → `"obsidian"` or `"standalone"`
-- `output.obsidian.vault_path` → vault path (if Obsidian)
-- `output.standalone.output_dir` → chosen dir (if standalone)
-- `language` → user's choice
+> "Looks like this is your first time running paperadar. Two minutes and you're set."
 
-Alternatively, tell the user they can run the interactive CLI wizard:
+**Step 1 (the important one) — the research brief.** Ask:
+
+> "In a sentence or two, what do you work on? Your field, the methods or systems
+> you use, the questions you care about, and any keywords, authors, or venues
+> worth prioritizing. paperadar works for any field — ML, physics, math,
+> economics, biology, whatever yours is."
+
+From their answer, **build the `research_domains` block yourself**: pick 2–5
+domain labels, and for each give 5–10 `keywords`, 1–4 `arxiv_categories` drawn
+from the relevant arXiv groups (e.g. `cs.*`, `stat.*`, `math.*`, `physics.*`,
+`astro-ph.*`, `cond-mat.*`, `econ.*`, `eess.*`, `q-bio.*`), and a `priority`
+(1–5). Also:
+- Set `research_brief:` to their verbatim sentence(s).
+- Set `bio_sources:` — `"auto"` is fine (it self-enables for biomedical
+  interests); set `true`/`false` only if they're clearly bio / clearly not.
+- Mention OpenAlex: *"OpenAlex adds ~270M papers across every field and is free.
+  Want cross-disciplinary coverage? Grab a key at https://openalex.org (30s) and
+  add `export OPENALEX_API_KEY="..."` to your `~/.zshrc`."* Set `openalex.enabled: "auto"`.
+
+**Steps 2–4 — the mechanics:**
+> 2. **Obsidian?** (yes/no, default no) — if yes, ask for the vault path (or read
+>    `$OBSIDIAN_VAULT_PATH`); config goes to
+>    `<vault>/99_System/Config/research_interests.yaml`. If no, config goes to
+>    `~/.config/paperadar/config.yaml`.
+> 3. **Zotero?** (yes/no, default no) — if yes, explain credentials come from env
+>    vars (`export ZOTERO_API_KEY=...` / `export ZOTERO_USER_ID=...` in `~/.zshrc`),
+>    not the YAML. If no, skip silently.
+> 4. **Output language?** (en / zh, default en). For standalone mode also confirm
+>    the output dir (default `~/paperadar-output/`; create it if missing).
+
+Then **write the config yourself** by copying `config.example.yaml` and patching
+`research_brief`, `research_domains`, `bio_sources`, `output.mode`,
+`output.obsidian.vault_path` / `output.standalone.output_dir`, and `language`.
+Confirm the result back to the user:
+
+```bash
+cd "$SKILL_DIR"
+"$PY" scripts/show_keywords.py ${CONFIG_PATH:+--config "$CONFIG_PATH"}
+```
+
+Finally, **persist the focus to memory where your runner supports it** (Claude
+Code / Codex memory, `AGENTS.md`, etc.) as a single line — e.g.
+`[paperadar] User's research focus: <one-line summary>. Config: <path>.` — so a
+future session already knows it. The YAML remains the durable, every-run memory;
+this is just a convenience. If your runner has no memory feature, skip this.
+
+Alternatively, the user can run the interactive CLI wizard (it now asks for the
+brief too):
 
 ```bash
 # cd into the skill folder (Claude Code, Codex, or a clone), then run:
-cd "$([ -d "$HOME/.claude/skills/start-my-week" ] && echo "$HOME/.claude/skills/start-my-week" || echo "$HOME/.codex/skills/start-my-week")"
+cd "$([ -d "$HOME/.claude/skills/paperadar" ] && echo "$HOME/.claude/skills/paperadar" || echo "$HOME/.codex/skills/paperadar")"
 python3 scripts/init_config.py
 ```
 
@@ -67,10 +99,10 @@ python3 scripts/init_config.py
 ```bash
 # Resolve SKILL_DIR for whichever runner hosts this skill — Claude Code,
 # Codex, or a bare git clone. Every `cd "$SKILL_DIR"` below depends on this.
-if [ -d "$HOME/.claude/skills/start-my-week" ]; then
-    SKILL_DIR="$HOME/.claude/skills/start-my-week"
-elif [ -d "$HOME/.codex/skills/start-my-week" ]; then
-    SKILL_DIR="$HOME/.codex/skills/start-my-week"
+if [ -d "$HOME/.claude/skills/paperadar" ]; then
+    SKILL_DIR="$HOME/.claude/skills/paperadar"
+elif [ -d "$HOME/.codex/skills/paperadar" ]; then
+    SKILL_DIR="$HOME/.codex/skills/paperadar"
 else
     # bare clone — resolve relative to this SKILL.md file
     SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -79,25 +111,25 @@ fi
 TODAY=$(date +%Y-%m-%d)
 
 # Scratch dir for intermediate JSON (Step 4 writes $OUTDIR/fulltext.json).
-OUTDIR="$(mktemp -d "${TMPDIR:-/tmp}/start-my-week-XXXXXX")"
+OUTDIR="$(mktemp -d "${TMPDIR:-/tmp}/paperadar-XXXXXX")"
 
 # Pin a Python interpreter that actually has the deps. Bare `python3` on
 # macOS is frequently the system 3.9 with nothing installed, which makes
-# every script ImportError. Prefer $START_MY_WEEK_PYTHON if the user set
+# every script ImportError. Prefer $PAPERADAR_PYTHON if the user set
 # it (e.g. a venv/conda python), else `python3`, then preflight-check.
-PY="${START_MY_WEEK_PYTHON:-python3}"
+PY="${PAPERADAR_PYTHON:-python3}"
 if ! "$PY" -c "import yaml, requests" >/dev/null 2>&1; then
     echo "ERROR: required Python deps (PyYAML, requests) missing for '$PY'." >&2
     echo "  Fix:  $PY -m pip install -r \"$SKILL_DIR/requirements.txt\"" >&2
-    echo "  Or set START_MY_WEEK_PYTHON to an interpreter that has them." >&2
+    echo "  Or set PAPERADAR_PYTHON to an interpreter that has them." >&2
     exit 1
 fi
 
 # Resolve config path (in priority order)
 if [ -n "$OBSIDIAN_VAULT_PATH" ] && [ -f "$OBSIDIAN_VAULT_PATH/99_System/Config/research_interests.yaml" ]; then
     CONFIG_PATH="$OBSIDIAN_VAULT_PATH/99_System/Config/research_interests.yaml"
-elif [ -f "$HOME/.config/start-my-week/config.yaml" ]; then
-    CONFIG_PATH="$HOME/.config/start-my-week/config.yaml"
+elif [ -f "$HOME/.config/paperadar/config.yaml" ]; then
+    CONFIG_PATH="$HOME/.config/paperadar/config.yaml"
 else
     CONFIG_PATH=""   # will use built-in defaults
 fi
@@ -116,6 +148,27 @@ PY
 )
     export OBSIDIAN_VAULT_PATH
 fi
+
+# Derive the arXiv category set from the config (the union of every domain's
+# arxiv_categories). This is what makes paperadar field-agnostic — a CS user
+# gets cs.* fetched, a physicist gets physics.*, etc. Falls back to a broad
+# cross-disciplinary default when the config is empty/missing.
+_FALLBACK_CATS="cs.AI,cs.LG,cs.CL,cs.CV,cs.NE,stat.ML,math.ST,physics.comp-ph,econ.GN,q-bio.QM"
+ARXIV_CATS=""
+if [ -n "$CONFIG_PATH" ]; then
+    ARXIV_CATS=$("$PY" - "$CONFIG_PATH" <<'PY'
+import sys, yaml
+cfg = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+cats, seen = [], set()
+for dom in (cfg.get("research_domains") or {}).values():
+    for c in (dom.get("arxiv_categories") or []):
+        if c not in seen:
+            seen.add(c); cats.append(c)
+print(",".join(cats))
+PY
+)
+fi
+ARXIV_CATS="${ARXIV_CATS:-$_FALLBACK_CATS}"
 ```
 
 # Inspecting and adapting your keywords
@@ -156,16 +209,24 @@ cd "$SKILL_DIR"
   --max-results 200 \
   --top-n 10 \
   --days 7 \
-  --categories "q-bio.GN,q-bio.QM,q-bio.CB,q-bio.MN"
+  --categories "$ARXIV_CATS"
 ```
 
-This runs arXiv + Semantic Scholar + bioRxiv + medRxiv + PubMed automatically.
-Output: `arxiv_filtered.json` with `top_papers` array, each paper has:
-`id, title, authors, abstract, url, published_date, source, note_filename, scores, matched_domain, journal`
+This always runs arXiv + Semantic Scholar (both span every field). It *also*
+runs, conditionally:
+- **bioRxiv + medRxiv + PubMed** — when `bio_sources` is `true`, or `"auto"`
+  and the config looks biomedical (a `q-bio.*` category or a bio keyword).
+- **OpenAlex** — when `openalex.enabled` is `true`, or `"auto"` and an
+  `OPENALEX_API_KEY` is set. Skips cleanly otherwise.
+
+Output: `arxiv_filtered.json` with a `top_papers` array (each paper has
+`id, title, authors, abstract, url, published_date, source, note_filename,
+scores, matched_domain, journal`) plus `bio_status` and `openalex_status`
+fields reporting whether those optional sources ran.
 
 **Journal filtering:** If `prioritize_journals` is set in the config, PubMed
-and Semantic Scholar results are restricted to those journals. arXiv, bioRxiv,
-and medRxiv preprints are always included regardless.
+and Semantic Scholar results are restricted to those venues. arXiv, bioRxiv,
+medRxiv, and OpenAlex results are always included regardless.
 
 ### Step 2 sanity guard (loud-fail)
 
@@ -182,13 +243,17 @@ if [ "$N" -eq 0 ]; then
   exit 1
 fi
 
-# Partial-failure warning (PubMed / bioRxiv unavailable but arXiv+S2 still
-# produced results). Non-fatal — but the user must know about the gap.
+# Partial-failure warning (a bio source ran but errored mid-run). Only an
+# actual error matters — "ok" means it ran, "disabled" means it was correctly
+# skipped for this (non-biomedical) config, so neither warrants a warning.
 BIO_STATUS=$(jq -r '.bio_status // "unknown"' arxiv_filtered.json)
-if [ "$BIO_STATUS" != "ok" ]; then
-  echo "WARN: bio sources reported '$BIO_STATUS'." >&2
-  echo "  PubMed/bioRxiv coverage may be incomplete this week." >&2
-fi
+case "$BIO_STATUS" in
+  ok|disabled) ;;  # ran cleanly, or intentionally off — no warning
+  *)
+    echo "WARN: bio sources reported '$BIO_STATUS'." >&2
+    echo "  PubMed/bioRxiv coverage may be incomplete this week." >&2
+    ;;
+esac
 ```
 
 This guard is **non-optional**. Per the project's *"sanity checks must
@@ -319,7 +384,7 @@ genuinely reproduced from the source.
 **Step 4.2B — fetch_fulltext.py (fallback / when no PMC ID)**
 
 ```bash
-cd "$SKILL_DIR"  # start-my-week — scripts are in-tree
+cd "$SKILL_DIR"  # paperadar — scripts are in-tree
 "$PY" scripts/fetch_fulltext.py \
   --paper-id "{id}" --doi "{doi}" \
   --out "$OUTDIR/fulltext.json"
@@ -362,7 +427,7 @@ cd "$SKILL_DIR"  # start-my-week — scripts are in-tree
   `launch_persistent_context(user_data_dir=<path>)` so `__cf_clearance`
   cookies survive across runs. A single manual CF clear in headed mode
   seeds the cookies; subsequent headless runs within cookie TTL bypass
-  the challenge entirely. Typical path: `~/.cache/start-my-week-chrome-profile`.
+  the challenge entirely. Typical path: `~/.cache/paperadar-chrome-profile`.
 
 **Branching**:
 
@@ -395,7 +460,7 @@ Best-effort. Skip if no images extracted; don't block on this step.
 ### 4.4 Generate the verified note
 
 ```bash
-cd "$SKILL_DIR"  # start-my-week — scripts are in-tree
+cd "$SKILL_DIR"  # paperadar — scripts are in-tree
 "$PY" scripts/generate_note.py \
   --paper-id "{id}" --doi "{doi}" \
   --title "{title}" --authors "{authors}" \

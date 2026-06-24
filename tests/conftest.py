@@ -1,4 +1,4 @@
-"""Pytest fixtures for start-my-week.
+"""Pytest fixtures for paperadar.
 
 The autouse `_isolated_tempdir` fixture below makes every test run with
 a redirected `tempfile.gettempdir()` so production cache paths cannot

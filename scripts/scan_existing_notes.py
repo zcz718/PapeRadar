@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Scan existing notes and build a keyword index.
-Used by the start-my-week skill to scan notes in an Obsidian vault and build a
+Used by the paperadar skill to scan notes in an Obsidian vault and build a
 mapping from keywords to note paths.
 """
 

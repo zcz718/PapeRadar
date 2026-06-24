@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Keyword linking script for the start-my-week skill.
+Keyword linking script for the paperadar skill.
 Finds keywords in text and replaces them with Obsidian wikilinks.
 """
 
