@@ -54,3 +54,42 @@ def test_all_off_returns_empty():
     cands = _pool("a", "b")
     v = {"a": "OFF", "b": "OFF"}
     assert rerank_apply.select(cands, v, 10) == []
+
+
+import json
+import pytest
+
+
+def _write(tmp_path, name, obj):
+    p = tmp_path / name
+    p.write_text(json.dumps(obj), encoding="utf-8")
+    return str(p)
+
+
+def test_normalize_rejects_bad_verdict():
+    with pytest.raises(ValueError):
+        rerank_apply._normalize_verdicts({"a": "MAYBE"})
+
+
+def test_normalize_accepts_dict_and_scalar_forms():
+    out = rerank_apply._normalize_verdicts({"a": "on", "b": {"verdict": "off", "reason": "x"}})
+    assert out == {"a": "ON", "b": "OFF"}
+
+
+def test_main_rewrites_top_papers_and_drops_candidates(tmp_path):
+    inp = _write(tmp_path, "in.json", {
+        "candidates": [{"id": "a", "title": "A"}, {"id": "b", "title": "B"}],
+        "top_papers": [{"id": "a", "title": "A"}],
+    })
+    ver = _write(tmp_path, "v.json", {"a": "OFF", "b": "ON"})
+    rc = rerank_apply.main(["--input", inp, "--verdicts", ver, "--top-n", "10"])
+    assert rc == 0
+    data = json.loads(open(inp, encoding="utf-8").read())
+    assert [p["id"] for p in data["top_papers"]] == ["b"]
+    assert "candidates" not in data  # discarded means discarded
+
+
+def test_main_errors_when_no_candidates(tmp_path):
+    inp = _write(tmp_path, "in.json", {"top_papers": []})
+    ver = _write(tmp_path, "v.json", {"a": "ON"})
+    assert rerank_apply.main(["--input", inp, "--verdicts", ver]) == 1
