@@ -1,0 +1,31 @@
+# Generated artifacts
+arxiv_filtered.json
+existing_notes_index.json
+
+# Standalone output directory (if placed inside the repo)
+output/
+
+# Local config (users should copy from config.example.yaml)
+research_interests.yaml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Transient diagnostic / probe tools (not part of the shipped pipeline).
+# tools/biorxiv_cf_probe.py was created during the 2026-05-26 CF-bypass
+# investigation; it's a one-off probe, not production code.
+tools/
