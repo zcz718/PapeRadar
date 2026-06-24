@@ -13,14 +13,14 @@ scripts directly from the command line.
 ## What it does
 
 - Pulls the last 7 days of new work from every source you've enabled.
-- Ranks it against a config of your keywords and arXiv categories — so a CS
-  paper and a genomics paper get judged by *your* yardstick, not a generic one.
+- Ranks it against your keywords and arXiv categories, so the order reflects
+  what you care about rather than raw popularity.
 - Writes a ranked weekly note plus a short scaffold per paper (abstract, links,
   citation IDs, slots for your own notes).
 - Optionally files everything in a dated Zotero collection.
 
-It is not biology-specific. The example config ships with machine-learning,
-statistics, and economics domains; biology is just one field among many.
+Point it at machine learning, physics, economics, genomics, or whatever you
+study — you describe your field once and it tunes to your topics.
 
 ## Tell the agent your research focus first
 
@@ -66,9 +66,11 @@ ln -s "$(pwd)" ~/.codex/skills/paperadar       # Codex (optional)
 ```
 
 `SKILL.md` finds its own directory at runtime, so the same body works under
-both. Then invoke it in natural language ("run my weekly recommendations") — or
-in Codex, with the explicit `$paperadar …` form, which is the most reliable
-trigger.
+both. Once it's linked, invoke it three ways:
+
+- **Slash command** — type `/paperadar` in Claude Code.
+- **Natural language** — "run my weekly recommendations", "what am I tracking?"
+- **Codex** — the explicit `$paperadar …` form, which is the most reliable trigger there.
 
 > **Dependencies.** Before the first run, install the requirements into the
 > interpreter the skill will use: `python3 -m pip install -r requirements.txt`.
