@@ -12,7 +12,7 @@ Auth: CORE requires a free API key. Set CORE_API_KEY in your environment (or
 ~/.zshrc); register at https://core.ac.uk/services/api. Without a key this
 module logs once and returns [] — the rest of the pipeline is unaffected.
 
-Returns the standard paperadar paper dict (see search_arxiv.filter_and_score_papers).
+Returns the standard paperadar paper dict (see search_papers.filter_and_score_papers).
 API docs: https://api.core.ac.uk/docs/v3
 """
 
@@ -22,22 +22,21 @@ import json
 import logging
 import os
 import sys
-import time
 import urllib.parse
 from datetime import datetime, timedelta
 from typing import Optional
 
-try:
-    import requests
-    _USE_REQUESTS = True
-except ImportError:  # pragma: no cover
-    import urllib.request
-    _USE_REQUESTS = False
-
-_scripts_dir = os.path.dirname(os.path.abspath(__file__))
-if _scripts_dir not in sys.path:
-    sys.path.insert(0, _scripts_dir)
+# This adapter lives in scripts/sources/; shared helpers (_env_resolve, _http,
+# _query) live one level up in scripts/. Put that parent dir on the import path
+# first, then pull in the shell-env resolver, JSON-fetch helper, and collector.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SCRIPTS_DIR = os.path.dirname(_HERE)
+for _p in (_SCRIPTS_DIR, _HERE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 from _env_resolve import load_env_from_user_shell
+from _http import fetch_json
+from _query import collect_keyword_terms
 
 logger = logging.getLogger(__name__)
 
@@ -47,21 +46,10 @@ _MAX_QUERY_TERMS = 12
 
 def _build_query(config: dict, from_date: str, until_date: str) -> str:
     """CORE Elasticsearch-style query: keyword OR group AND a createdDate window."""
-    seen, terms = set(), []
-    for domain in (config.get("research_domains") or {}).values():
-        for kw in (domain.get("keywords") or []):
-            kw = (kw or "").strip()
-            if len(kw) <= 2 or kw.lower() in seen:
-                continue
-            seen.add(kw.lower())
-            terms.append(f'"{kw}"' if " " in kw else kw)
-            if len(terms) >= _MAX_QUERY_TERMS:
-                break
-        if len(terms) >= _MAX_QUERY_TERMS:
-            break
+    terms = collect_keyword_terms(config, max_terms=_MAX_QUERY_TERMS)
     if not terms:
         return ""
-    kw_group = "(" + " OR ".join(terms) + ")"
+    kw_group = "(" + " OR ".join(f'"{t}"' if " " in t else t for t in terms) + ")"
     # `createdDate` is when CORE INDEXED the record — a precise window, but on
     # its own it surfaces old papers freshly re-deposited (e.g. a 2009 paper
     # added this week). CORE 500s on a precise `publishedDate` range, so we
@@ -123,28 +111,14 @@ def _map_result(result: dict) -> Optional[dict]:
     }
 
 
-def _fetch_json(url: str, api_key: str, retries: int = 3) -> Optional[dict]:
-    headers = {"User-Agent": "paperadar/1.0", "Authorization": f"Bearer {api_key}"}
-    for attempt in range(retries):
-        try:
-            if _USE_REQUESTS:
-                import requests as req
-                resp = req.get(url, timeout=30, headers=headers)
-                if resp.status_code == 429:
-                    time.sleep(5 * (attempt + 1))
-                    continue
-                resp.raise_for_status()
-                return resp.json()
-            else:  # pragma: no cover
-                rq = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(rq, timeout=30) as r:
-                    return json.loads(r.read().decode("utf-8"))
-        except Exception as e:
-            if attempt < retries - 1:
-                time.sleep(2 ** attempt)
-            else:
-                logger.error("[CORE] fetch error: %s", e)
-    return None
+def _fetch_json(url, api_key, retries=3):
+    """GET a URL (with CORE Bearer auth) and parse JSON via the shared helper.
+
+    A thin wrapper so the retry/back-off/429 logic is shared while tests can
+    still patch ``search_core._fetch_json`` and assert the key is forwarded.
+    """
+    return fetch_json(url, headers={"Authorization": f"Bearer {api_key}"},
+                      retries=retries, label="CORE")
 
 
 def search_core(

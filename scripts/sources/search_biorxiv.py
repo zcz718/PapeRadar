@@ -2,7 +2,7 @@
 """
 search_biorxiv.py — Query bioRxiv/medRxiv REST API for recent preprints.
 
-Returns results in the same dict format as search_arxiv.py:
+Returns results in the same dict format as search_papers.py:
   {id, title, authors, abstract, url, published_date, source}
 
 API docs: https://api.biorxiv.org/
@@ -28,6 +28,14 @@ try:
     _HAS_YAML = True
 except ImportError:
     _HAS_YAML = False
+
+# This adapter lives in scripts/sources/; its shared helper (_config_paths,
+# used by the standalone CLI's load_config) lives one level up in scripts/.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SCRIPTS_DIR = os.path.dirname(_HERE)
+for _p in (_SCRIPTS_DIR, _HERE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 BIORXIV_API = "https://api.biorxiv.org/details"
 

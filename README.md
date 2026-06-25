@@ -71,51 +71,63 @@ Selection runs in two stages — wide recall, then a precise cut:
 The keyword layer casts a wide net; the brief-aware rerank tightens it. A clear
 `research_brief` is what makes that second stage sharp.
 
-## Quickstart
+## Getting started
+
+Three steps: install it, tell it what you study, run it weekly.
+
+### 1. Install
+
+Clone the repo, install dependencies, and symlink it into whichever runner you use:
 
 ```bash
 git clone https://github.com/zcz718/paperadar.git
 cd paperadar
 pip install -r requirements.txt
-python scripts/init_config.py     # or just ask the agent to set you up
-```
 
-The wizard asks for your research brief, whether you use Obsidian and Zotero,
-and where notes should go, then writes your config. If you'd rather not run it,
-the agent walks you through the same thing conversationally on first use.
-
-## Running it
-
-### As a skill
-
-Keep one copy of this repo and symlink it into whichever runner you use:
-
-```bash
 ln -s "$(pwd)" ~/.claude/skills/paperadar      # Claude Code
 ln -s "$(pwd)" ~/.codex/skills/paperadar       # Codex (optional)
 ```
 
-`SKILL.md` finds its own directory at runtime, so the same body works under
-both. Once it's linked, invoke it three ways:
+`SKILL.md` finds its own directory at runtime, so one copy works under both.
+
+> **Dependencies.** Install the requirements into the interpreter the skill will
+> use (`python3 -m pip install -r requirements.txt`). If your default `python3`
+> doesn't have them, point the skill at the right one with
+> `export PAPERADAR_PYTHON=/path/to/python`. The skill preflight-checks this and
+> fails loudly with instructions if anything is missing.
+
+### 2. Tell it what you study
+
+Run the setup wizard — or just ask the agent "set me up". Both write the same config:
+
+```bash
+python scripts/init_config.py
+```
+
+It asks for your research brief (one sentence on what you work on), whether you
+use Obsidian and Zotero, and where notes should go. That one sentence is what
+makes the picks sharp — see [Tell the agent your research focus](#tell-the-agent-your-research-focus-first).
+
+### 3. Run it
+
+Invoke it any of three ways:
 
 - **Slash command** — type `/paperadar` in Claude Code.
 - **Natural language** — "run my weekly recommendations", "what am I tracking?"
-- **Codex** — the explicit `$paperadar …` form, which is the most reliable trigger there.
+- **Codex** — the explicit `$paperadar …` form (the most reliable trigger there).
 
-> **Dependencies.** Before the first run, install the requirements into the
-> interpreter the skill will use: `python3 -m pip install -r requirements.txt`.
-> If your default `python3` doesn't have them, point the skill at the right one
-> with `export PAPERADAR_PYTHON=/path/to/python`. The skill preflight-checks
-> this and fails loudly with instructions if anything is missing.
+### Running without an agent (command line)
 
-### From the command line
+The scripts also run directly. A pure command-line run uses the keyword ranking
+only — the brief-aware rerank is a skill step (it needs your `research_brief`
+and a model).
 
 ```bash
 # See what you're tracking (and your saved brief)
 python scripts/show_keywords.py
 
 # Run the search — categories come from your config; 7-day window
-python scripts/search_arxiv.py \
+python scripts/search_papers.py \
   --config /path/to/research_interests.yaml \
   --output arxiv_filtered.json \
   --max-results 200 --top-n 10 --days 7 \
@@ -124,9 +136,6 @@ python scripts/search_arxiv.py \
 # Turn the results into a weekly index + per-paper notes
 python scripts/materialize_weekly_notes.py --input arxiv_filtered.json
 ```
-
-The brief-aware rerank is a skill step (it needs your `research_brief` and a
-model), so a pure command-line run uses the keyword ranking directly.
 
 The config is auto-detected from the standard locations; pass `--config` to
 override. Lookup order: `$OBSIDIAN_VAULT_PATH/99_System/Config/research_interests.yaml`,
@@ -205,34 +214,27 @@ paperadar/
 ├── agents/openai.yaml        # Codex interface metadata
 ├── scripts/
 │   ├── init_config.py        # first-run setup wizard
-│   ├── search_arxiv.py       # orchestrator (arXiv + S2 + dispatch)
-│   ├── search_openalex.py    # OpenAlex (cross-disciplinary)
-│   ├── search_crossref.py    # Crossref (DOI registry, any field)
-│   ├── search_core.py        # CORE (open-access repositories)
-│   ├── search_biorxiv.py     # bioRxiv / medRxiv
-│   ├── search_pubmed.py      # PubMed via E-utilities
-│   ├── rerank_apply.py        # apply the agent's relevance rerank
+│   ├── search_papers.py       # orchestrator (arXiv + S2 + source dispatch + scoring)
+│   ├── rerank_apply.py       # apply the agent's relevance rerank
 │   ├── materialize_weekly_notes.py  # weekly index + paper scaffolds
 │   ├── fetch_fulltext.py     # multi-source full-text/PDF fetch chain
 │   ├── generate_note.py      # PDF-verified deep-analysis note
 │   ├── save_to_zotero.py     # optional Zotero sync
 │   ├── show_keywords.py      # inspect your config + brief
-│   └── … shared helpers (_config_paths, _env_resolve, _scoring, …)
+│   ├── sources/              # one adapter per catalogue, shared search_<name>() interface
+│   │   ├── search_openalex.py    # OpenAlex (cross-disciplinary)
+│   │   ├── search_crossref.py    # Crossref (DOI registry, any field)
+│   │   ├── search_core.py        # CORE (open-access repositories)
+│   │   ├── search_biorxiv.py     # bioRxiv / medRxiv
+│   │   └── search_pubmed.py      # PubMed via E-utilities
+│   └── … shared helpers (_http, _query, _scoring, _config_paths, _env_resolve, …)
 └── tests/                    # pytest suite
 ```
 
 ## Credits & thanks
 
-PapeRadar grew out of [**evil-read-arxiv**](https://github.com/juliye2025/evil-read-arxiv)
-by [juliye2025](https://github.com/juliye2025) — the arXiv + Semantic Scholar
-search and scoring skeleton that gave this project its start. Thank you for the
-head start.
-
-evil-read-arxiv is published without a license, so as a courtesy: if you'd like
-to build on *that* original code, it's worth checking in with the author first.
-Everything added in PapeRadar — the OpenAlex and multi-source search, the
-Obsidian and Zotero integrations, the brief-based onboarding, and the
-orchestration in `SKILL.md` and `scripts/` — is released under MIT.
+PapeRadar started from [**evil-read-arxiv**](https://github.com/juliye2025/evil-read-arxiv)
+by [juliye2025](https://github.com/juliye2025) — thank you for the head start.
 
 ## License
 

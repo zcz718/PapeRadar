@@ -20,12 +20,12 @@ import os
 import sys
 from pathlib import Path
 
-# Reuse the existing config loader (with hardcoded fallback) from search_arxiv.py
+# Reuse the existing config loader (with hardcoded fallback) from search_papers.py
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 try:
-    from search_arxiv import load_research_config
+    from search_papers import load_research_config
     from _config_paths import resolve_config_path
 except ImportError as e:
     print(f"ERROR: could not import dependencies: {e}", file=sys.stderr)
@@ -92,7 +92,7 @@ def main() -> int:
         # load_research_config returns the hardcoded fallback when path is missing/unreadable.
         # Silence its logger.error() for the intentional-fallback case.
         import logging
-        _log = logging.getLogger("search_arxiv")
+        _log = logging.getLogger("search_papers")
         _prev = _log.level
         _log.setLevel(logging.CRITICAL)
         config = load_research_config("/__nonexistent__")

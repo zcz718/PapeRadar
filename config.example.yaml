@@ -135,7 +135,7 @@ core:
 # ─────────────────────────────────────────────────────────────────────────
 # Relevance rerank (agent precision pass)
 # ─────────────────────────────────────────────────────────────────────────
-# search_arxiv.py emits a candidate pool (CLI: --pool-size, default 25). When an
+# search_papers.py emits a candidate pool (CLI: --pool-size, default 25). When an
 # agent runs the skill, SKILL.md Step 2.7 has it judge each candidate against
 # `research_brief` and keep the on-target ones (off-target are dropped). The
 # keyword gate is recall-first by default (scoring.min_keyword_matches: 1); set

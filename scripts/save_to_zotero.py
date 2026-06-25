@@ -130,7 +130,7 @@ def _extract_date(paper):
 def _extract_authors(paper):
     """Convert paper authors to Zotero creators format.
 
-    As of 2026-05, `search_arxiv._normalize_authors` ensures
+    As of 2026-05, `search_papers._normalize_authors` ensures
     `paper["authors"]` is always `list[str]` regardless of source.
     The `isinstance(author, dict)` branch below remains as a
     backward-compatibility shim for any consumer feeding an older

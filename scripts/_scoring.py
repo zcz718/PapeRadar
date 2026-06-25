@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Paper-scoring subsystem — relevance, recency, popularity, quality.
 
-Extracted from `search_arxiv.py` (2026-05) per DEFERRED.md #5. The
+Extracted from `search_papers.py` (2026-05) per DEFERRED.md #5. The
 scoring functions are the largest self-contained block in that file
 (~230 LOC) and don't share state with arXiv / Semantic Scholar HTTP
 client code, so they're the cleanest unit to lift first.
 
-Public surface (re-exported from `search_arxiv.py` so existing test
-imports `from search_arxiv import calculate_recency_score` still work):
+Public surface (re-exported from `search_papers.py` so existing test
+imports `from search_papers import calculate_recency_score` still work):
 
   Constants:
     SCORE_MAX
@@ -342,7 +342,7 @@ def calculate_recommendation_score(
     # this clamp the weighted blend could break the documented 0–10 ceiling.
     # recency and quality are already ≤ SCORE_MAX so the clamp is a no-op
     # for them. Clamping here (rather than inside calculate_relevance_score)
-    # preserves the raw relevance that search_arxiv.py's keyword_only_score
+    # preserves the raw relevance that search_papers.py's keyword_only_score
     # gate subtracts category boosts from.
     normalized = {k: min((v / SCORE_MAX) * 10, 10.0) for k, v in scores.items()}
 

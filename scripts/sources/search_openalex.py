@@ -9,7 +9,7 @@ Crossref, PubMed, DataCite, and institutional repositories, so it extends
 (rather than duplicates) the arXiv + Semantic Scholar + bio sources.
 
 Returns results in the same dict format the orchestrator expects from every
-source (see search_arxiv.filter_and_score_papers):
+source (see search_papers.filter_and_score_papers):
   {id, title, abstract, summary, authors, published_date, source, url,
    journal, doi, arxiv_id, categories}
 
@@ -34,20 +34,19 @@ import urllib.parse
 from datetime import datetime, timedelta
 from typing import Optional
 
-try:
-    import requests
-    _USE_REQUESTS = True
-except ImportError:  # pragma: no cover - urllib fallback
-    import urllib.request
-    _USE_REQUESTS = False
-
-# Reuse the shared shell-env resolver (same pattern as save_to_zotero /
-# fetch_fulltext) so a key exported in ~/.zshrc is visible even when a
-# non-interactive runner invokes us.
-_scripts_dir = os.path.dirname(os.path.abspath(__file__))
-if _scripts_dir not in sys.path:
-    sys.path.insert(0, _scripts_dir)
+# This adapter lives in scripts/sources/; its shared helpers (_env_resolve,
+# _http, _query) live one level up in scripts/. Put that parent dir on the
+# import path first, then pull in the shared shell-env resolver (so a key
+# exported in ~/.zshrc reaches non-interactive runners), the JSON-fetch helper,
+# and the keyword collector.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SCRIPTS_DIR = os.path.dirname(_HERE)
+for _p in (_SCRIPTS_DIR, _HERE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 from _env_resolve import load_env_from_user_shell
+from _http import fetch_json
+from _query import collect_keyword_terms
 
 logger = logging.getLogger(__name__)
 
@@ -83,26 +82,11 @@ def _build_search_query(config: dict) -> str:
 
     Collects every keyword across all research_domains, de-duplicates
     (case-insensitively), caps the count, and joins with OR. Multi-word
-    phrases are quoted. The local re-scorer in search_arxiv prunes anything
+    phrases are quoted. The local re-scorer in search_papers prunes anything
     irrelevant afterwards, so a broad recall here is fine.
     """
-    seen: set[str] = set()
-    terms: list[str] = []
-    for domain in (config.get("research_domains") or {}).values():
-        for kw in (domain.get("keywords") or []):
-            kw = (kw or "").strip()
-            if len(kw) <= 2:
-                continue
-            key = kw.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            terms.append(f'"{kw}"' if " " in kw else kw)
-            if len(terms) >= _MAX_QUERY_TERMS:
-                break
-        if len(terms) >= _MAX_QUERY_TERMS:
-            break
-    return " OR ".join(terms)
+    terms = collect_keyword_terms(config, max_terms=_MAX_QUERY_TERMS)
+    return " OR ".join(f'"{t}"' if " " in t else t for t in terms)
 
 
 def _map_work(work: dict) -> Optional[dict]:
@@ -154,32 +138,13 @@ def _map_work(work: dict) -> Optional[dict]:
     }
 
 
-def _fetch_json(url: str, retries: int = 3) -> Optional[dict]:
-    """GET a URL and parse JSON. Returns dict or None on sustained failure."""
-    for attempt in range(retries):
-        try:
-            if _USE_REQUESTS:
-                import requests as req
-                resp = req.get(
-                    url, timeout=30,
-                    headers={"User-Agent": "paperadar/1.0"},
-                )
-                if resp.status_code == 429:
-                    time.sleep(5 * (attempt + 1))
-                    continue
-                resp.raise_for_status()
-                return resp.json()
-            else:  # pragma: no cover - urllib fallback
-                req = urllib.request.Request(
-                    url, headers={"User-Agent": "paperadar/1.0"})
-                with urllib.request.urlopen(req, timeout=30) as r:
-                    return json.loads(r.read().decode("utf-8"))
-        except Exception as e:
-            if attempt < retries - 1:
-                time.sleep(2 ** attempt)
-            else:
-                logger.error("[OpenAlex] fetch error (%s): %s", url, e)
-    return None
+def _fetch_json(url, retries=3):
+    """GET a URL and parse JSON via the shared helper (scripts/_http.py).
+
+    A thin module-level wrapper: the retry/back-off/429 logic is shared, while
+    tests can still patch ``search_openalex._fetch_json``.
+    """
+    return fetch_json(url, retries=retries, label="OpenAlex")
 
 
 def search_openalex(

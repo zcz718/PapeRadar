@@ -2,7 +2,7 @@
 """
 search_pubmed.py — Query PubMed via NCBI E-utilities for recent biology papers.
 
-Returns results in the same dict format as search_arxiv.py:
+Returns results in the same dict format as search_papers.py:
   {id, title, authors, abstract, url, published_date, source}
 
 Rate limits:
@@ -32,6 +32,16 @@ try:
     _HAS_YAML = True
 except ImportError:
     _HAS_YAML = False
+
+# This adapter lives in scripts/sources/; its shared helpers (_env_resolve,
+# _id_parser, _config_paths) live one level up in scripts/. Put that parent dir
+# on the import path before they are used below (notably _resolve_ncbi_env(),
+# which runs at import time).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SCRIPTS_DIR = os.path.dirname(_HERE)
+for _p in (_SCRIPTS_DIR, _HERE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 

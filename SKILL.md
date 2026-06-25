@@ -154,7 +154,7 @@ fi
 # gets cs.* fetched, a physicist gets physics.*, etc. Falls back to a broad
 # cross-disciplinary default when the config is empty/missing.
 #
-# NOTE: search_arxiv.py now performs this same derivation internally when
+# NOTE: search_papers.py now performs this same derivation internally when
 # --categories is omitted (so a direct, non-SKILL invocation is also
 # field-agnostic). Passing --categories below is still honoured and kept for
 # explicitness; the bash derivation here is back-compat and can be removed.
@@ -208,7 +208,7 @@ cd "$SKILL_DIR"
 
 ```bash
 cd "$SKILL_DIR"
-"$PY" scripts/search_arxiv.py \
+"$PY" scripts/search_papers.py \
   ${CONFIG_PATH:+--config "$CONFIG_PATH"} \
   --output arxiv_filtered.json \
   --max-results 200 \
@@ -246,7 +246,7 @@ medRxiv, and OpenAlex results are always included regardless.
 
 ### Step 2 sanity guard (loud-fail)
 
-After `search_arxiv.py` returns, the orchestrator MUST check the output
+After `search_papers.py` returns, the orchestrator MUST check the output
 before proceeding to Step 3 — otherwise a zero-result week silently
 produces an empty weekly note that looks "successful":
 
@@ -255,7 +255,7 @@ N=$(jq '.top_papers | length' arxiv_filtered.json)
 if [ "$N" -eq 0 ]; then
   echo "ERROR: zero papers matched your criteria this week." >&2
   echo "  Likely causes: API downtime, overly restrictive keywords," >&2
-  echo "  or all sources returned empty. Check search_arxiv.py log." >&2
+  echo "  or all sources returned empty. Check search_papers.py log." >&2
   exit 1
 fi
 
@@ -278,7 +278,7 @@ top-N is empty.
 
 # Step 2.7 — Relevance rerank (semantic precision pass)
 
-Run this AFTER the Step 2 sanity guard and BEFORE Step 3. `search_arxiv.py`
+Run this AFTER the Step 2 sanity guard and BEFORE Step 3. `search_papers.py`
 emits a deeper `candidates` pool (default 25) in `arxiv_filtered.json`; the
 keyword score provides recall, and you (the agent) provide precision by judging
 each candidate against the user's `research_brief`.
@@ -380,7 +380,7 @@ For the 3 highest-scored papers:
    - bioRxiv/medRxiv DOI: `10.1101/2024.01.01.123456`
    - Paper title or absolute path to an existing note
    - For Semantic Scholar results, prefer the embedded `externalIds.PubMed` (as `PMID:...`) or `externalIds.DOI`; fall back to title only if neither is present.
-2. Pull the DOI from `arxiv_filtered.json` (carried by `search_pubmed.py`). Pass it through as `--doi <DOI>`.
+2. Pull the DOI from `arxiv_filtered.json` (carried by `scripts/sources/search_pubmed.py`). Pass it through as `--doi <DOI>`.
 3. Check if a note already exists in `20_Research/Papers/` (search by ID or title). If yes, **only refresh from PDF if the existing note has `verified_against_pdf: false` or missing**.
 
 ### 4.2 Fetch the full text (mandatory before paper-analyze)

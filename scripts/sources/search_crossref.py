@@ -14,7 +14,7 @@ it is JATS-XML (stripped to plain text here). paperadar's scorer still matches
 on the title, and drops anything that fails the relevance threshold, so sparse
 abstracts cost recall, not correctness.
 
-Returns the standard paperadar paper dict (see search_arxiv.filter_and_score_papers).
+Returns the standard paperadar paper dict (see search_papers.filter_and_score_papers).
 API docs: https://api.crossref.org/swagger-ui/index.html
 """
 
@@ -25,22 +25,21 @@ import logging
 import os
 import re
 import sys
-import time
 import urllib.parse
 from datetime import datetime, timedelta
 from typing import Optional
 
-try:
-    import requests
-    _USE_REQUESTS = True
-except ImportError:  # pragma: no cover - urllib fallback
-    import urllib.request
-    _USE_REQUESTS = False
-
-_scripts_dir = os.path.dirname(os.path.abspath(__file__))
-if _scripts_dir not in sys.path:
-    sys.path.insert(0, _scripts_dir)
+# This adapter lives in scripts/sources/; shared helpers (_env_resolve, _http,
+# _query) live one level up in scripts/. Put that parent dir on the import path
+# first, then pull in the shell-env resolver, JSON-fetch helper, and collector.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SCRIPTS_DIR = os.path.dirname(_HERE)
+for _p in (_SCRIPTS_DIR, _HERE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 from _env_resolve import load_env_from_user_shell
+from _http import fetch_json
+from _query import collect_keyword_terms
 
 logger = logging.getLogger(__name__)
 
@@ -51,17 +50,7 @@ _JATS_TAG = re.compile(r"<[^>]+>")
 
 def _build_query(config: dict) -> str:
     """Space-joined keyword query (Crossref `query` is relevance, not boolean)."""
-    seen, terms = set(), []
-    for domain in (config.get("research_domains") or {}).values():
-        for kw in (domain.get("keywords") or []):
-            kw = (kw or "").strip()
-            if len(kw) <= 2 or kw.lower() in seen:
-                continue
-            seen.add(kw.lower())
-            terms.append(kw)
-            if len(terms) >= _MAX_QUERY_TERMS:
-                return " ".join(terms)
-    return " ".join(terms)
+    return " ".join(collect_keyword_terms(config, max_terms=_MAX_QUERY_TERMS))
 
 
 def _strip_jats(abstract: str) -> str:
@@ -116,27 +105,13 @@ def _map_item(item: dict) -> Optional[dict]:
     }
 
 
-def _fetch_json(url: str, retries: int = 3) -> Optional[dict]:
-    for attempt in range(retries):
-        try:
-            if _USE_REQUESTS:
-                import requests as req
-                resp = req.get(url, timeout=30, headers={"User-Agent": "paperadar/1.0"})
-                if resp.status_code == 429:
-                    time.sleep(5 * (attempt + 1))
-                    continue
-                resp.raise_for_status()
-                return resp.json()
-            else:  # pragma: no cover
-                rq = urllib.request.Request(url, headers={"User-Agent": "paperadar/1.0"})
-                with urllib.request.urlopen(rq, timeout=30) as r:
-                    return json.loads(r.read().decode("utf-8"))
-        except Exception as e:
-            if attempt < retries - 1:
-                time.sleep(2 ** attempt)
-            else:
-                logger.error("[Crossref] fetch error (%s): %s", url, e)
-    return None
+def _fetch_json(url, retries=3):
+    """GET a URL and parse JSON via the shared helper (scripts/_http.py).
+
+    A thin wrapper so the retry/back-off/429 logic is shared while tests can
+    still patch ``search_crossref._fetch_json``.
+    """
+    return fetch_json(url, retries=retries, label="Crossref")
 
 
 def search_crossref(

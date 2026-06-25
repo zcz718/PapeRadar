@@ -4,7 +4,7 @@
 The motivation comes from two concurrent-run race conditions identified
 in DEFERRED.md item #4:
 
-1. `search_arxiv.py` writes `arxiv_filtered.json` with a plain
+1. `search_papers.py` writes `arxiv_filtered.json` with a plain
    `open(...).write(json.dumps(...))`. Two `/paperadar` runs in
    parallel can corrupt each other's output mid-write — one process
    reads a half-flushed file the other process is still writing.
@@ -52,7 +52,7 @@ def atomic_write_json(
     if they want) but does not corrupt `path` itself.
 
     Encoding: utf-8 with `ensure_ascii=False` (matches the existing
-    `json.dumps` usage in search_arxiv.py — preserves non-ASCII paper
+    `json.dumps` usage in search_papers.py — preserves non-ASCII paper
     titles intact rather than escaping them).
 
     `default=str` is the historic default in this repo so datetime

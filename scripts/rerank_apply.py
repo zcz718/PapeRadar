@@ -59,7 +59,7 @@ def main(argv=None):
         data = json.load(f)
     candidates = data.get("candidates")
     if not isinstance(candidates, list):
-        print("ERROR: input has no 'candidates' array; re-run search_arxiv.py.", file=sys.stderr)
+        print("ERROR: input has no 'candidates' array; re-run search_papers.py.", file=sys.stderr)
         return 1
     try:
         with open(args.verdicts, encoding="utf-8") as f:

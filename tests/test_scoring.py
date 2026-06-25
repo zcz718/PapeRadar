@@ -1,5 +1,5 @@
 """Unit tests for the scoring core (`_scoring.py`) and the inclusion gate
-(`search_arxiv.filter_and_score_papers`), plus the precision fixes from the
+(`search_papers.filter_and_score_papers`), plus the precision fixes from the
 cross-field QC: a recall-first gate (>=1 keyword by default, >=2 opt-in via
 scoring.min_keyword_matches, OR >=1 compound keyword), re-weighted ranking,
 conservative bio-source auto-detection, in-script arXiv category derivation,
@@ -16,7 +16,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import search_arxiv  # noqa: E402
+import search_papers  # noqa: E402
 import _scoring  # noqa: E402
 
 TARGET = datetime(2026, 6, 24)
@@ -39,7 +39,7 @@ def _cfg_strict(domains, excluded=None):
 
 
 def _score(papers, cfg):
-    return search_arxiv.filter_and_score_papers(
+    return search_papers.filter_and_score_papers(
         [dict(p) for p in papers], cfg, target_date=TARGET)
 
 
@@ -122,7 +122,7 @@ def test_default_gate_admits_single_keyword():
 
 
 def test_resolve_scoring_default_min_keyword_matches_is_one():
-    assert search_arxiv._resolve_scoring({})["min_keyword_matches"] == 1
+    assert search_papers._resolve_scoring({})["min_keyword_matches"] == 1
 
 
 # --------------------------------------------------------------------------
@@ -144,27 +144,27 @@ def test_weights_hot_reweighted():
 # P4: conservative bio_sources auto
 # --------------------------------------------------------------------------
 def test_bio_unknown_value_is_off():
-    assert search_arxiv._bio_sources_enabled({"bio_sources": "garbage"}) is False
-    assert search_arxiv._bio_sources_enabled({"bio_sources": None}) is False
-    assert search_arxiv._bio_sources_enabled({}) is False
+    assert search_papers._bio_sources_enabled({"bio_sources": "garbage"}) is False
+    assert search_papers._bio_sources_enabled({"bio_sources": None}) is False
+    assert search_papers._bio_sources_enabled({}) is False
 
 
 def test_bio_explicit_true_overrides():
-    assert search_arxiv._bio_sources_enabled({"bio_sources": True}) is True
+    assert search_papers._bio_sources_enabled({"bio_sources": True}) is True
 
 
 def test_bio_qbio_category_enables():
-    assert search_arxiv._bio_sources_enabled(
+    assert search_papers._bio_sources_enabled(
         {"bio_sources": "auto", "research_domains": {"D": {"arxiv_categories": ["q-bio.GN"], "keywords": []}}}) is True
 
 
 def test_bio_biomed_keyword_enables():
-    assert search_arxiv._bio_sources_enabled(
+    assert search_papers._bio_sources_enabled(
         {"research_domains": {"D": {"arxiv_categories": [], "keywords": ["DNA methylation"]}}}) is True
 
 
 def test_bio_nonbio_config_off():
-    assert search_arxiv._bio_sources_enabled(
+    assert search_papers._bio_sources_enabled(
         {"research_domains": {"D": {"arxiv_categories": ["econ.GN"], "keywords": ["cash transfer", "famine"]}}}) is False
 
 
@@ -175,36 +175,36 @@ def test_derive_categories_union_order_preserving():
     cfg = {"research_domains": {
         "A": {"arxiv_categories": ["cs.LG", "cs.AI"]},
         "B": {"arxiv_categories": ["cs.AI", "stat.ML"]}}}
-    assert search_arxiv._derive_arxiv_categories_from_config(cfg) == ["cs.LG", "cs.AI", "stat.ML"]
+    assert search_papers._derive_arxiv_categories_from_config(cfg) == ["cs.LG", "cs.AI", "stat.ML"]
 
 
 def test_derive_categories_empty():
-    assert search_arxiv._derive_arxiv_categories_from_config({}) == []
+    assert search_papers._derive_arxiv_categories_from_config({}) == []
 
 
 # --------------------------------------------------------------------------
 # P5: CORE demoted to opt-in
 # --------------------------------------------------------------------------
 def _core_spec():
-    return next(s for s in search_arxiv._EXTRA_SOURCES if s["name"] == "CORE")
+    return next(s for s in search_papers._EXTRA_SOURCES if s["name"] == "CORE")
 
 
 def test_core_default_off():
-    assert search_arxiv._extra_source_enabled(_core_spec(), {}) is False
+    assert search_papers._extra_source_enabled(_core_spec(), {}) is False
 
 
 def test_core_explicit_true_enables():
-    assert search_arxiv._extra_source_enabled(_core_spec(), {"core": {"enabled": True}}) is True
+    assert search_papers._extra_source_enabled(_core_spec(), {"core": {"enabled": True}}) is True
 
 
 def test_openalex_default_remains_auto():
-    spec = next(s for s in search_arxiv._EXTRA_SOURCES if s["name"] == "OpenAlex")
+    spec = next(s for s in search_papers._EXTRA_SOURCES if s["name"] == "OpenAlex")
     assert spec.get("default", "auto") == "auto"
 
 
 def test_split_pool_candidates_and_topn_fallback():
     papers = [{"id": str(i)} for i in range(30)]
-    cands, top = search_arxiv._split_pool(papers, pool_size=25, top_n=10)
+    cands, top = search_papers._split_pool(papers, pool_size=25, top_n=10)
     assert len(cands) == 25
     assert [p["id"] for p in top] == [str(i) for i in range(10)]
     assert top == cands[:10]  # fallback is the head of the pool
@@ -212,6 +212,6 @@ def test_split_pool_candidates_and_topn_fallback():
 
 def test_split_pool_pool_size_floored_to_top_n():
     papers = [{"id": str(i)} for i in range(30)]
-    cands, top = search_arxiv._split_pool(papers, pool_size=5, top_n=10)
+    cands, top = search_papers._split_pool(papers, pool_size=5, top_n=10)
     assert len(cands) == 10  # pool can't be smaller than top_n
     assert len(top) == 10

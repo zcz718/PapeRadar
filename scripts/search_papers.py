@@ -49,10 +49,15 @@ except ImportError:
 # triggers a stderr WARN line in the SKILL.md guard so the user knows the
 # top-N may be incomplete.
 BIO_SOURCES_STATUS = "ok"
+# Source adapters now live in scripts/sources/. Put both this dir (for shared
+# helpers) and the sources dir (for the adapter modules, imported by bare name
+# here and via the _EXTRA_SOURCES registry below) on the import path.
+_scripts_dir = os.path.dirname(os.path.abspath(__file__))
+_sources_dir = os.path.join(_scripts_dir, "sources")
+for _p in (_scripts_dir, _sources_dir):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 try:
-    _scripts_dir = os.path.dirname(os.path.abspath(__file__))
-    if _scripts_dir not in sys.path:
-        sys.path.insert(0, _scripts_dir)
     from search_pubmed import search_pubmed
     from search_biorxiv import search_biorxiv
     HAS_BIO_SOURCES = True
@@ -108,7 +113,7 @@ def _normalize_authors(authors) -> list:
     Downstream consumers (the weekly note formatter, save_to_zotero,
     `jq` queries against arxiv_filtered.json) all expect strings.
 
-    Normalising at the source — here in search_arxiv — means
+    Normalising at the source — here in search_papers — means
     `arxiv_filtered.json` always has `authors: ["...", ...]`, which is
     `jq`-friendly and removes the band-aid case-split that used to live
     in `save_to_zotero._paper_to_zotero_item`.
@@ -157,7 +162,7 @@ ARXIV_CATEGORY_KEYWORDS = {
 # ---------------------------------------------------------------------------
 # Scoring constants — scoring constants + functions live in `scripts/_scoring.py`
 # since 2026-05 (DEFERRED.md #5). Re-imported here so existing call sites
-# and test imports (`from search_arxiv import calculate_recency_score`)
+# and test imports (`from search_papers import calculate_recency_score`)
 # keep working without touching test code.
 # ---------------------------------------------------------------------------
 from _scoring import (  # noqa: E402
@@ -705,7 +710,7 @@ def parse_arxiv_xml(xml_content: str) -> List[Dict]:
 # `calculate_quality_score`, `calculate_recommendation_score`,
 # `_resolve_reference_now`) were extracted to `scripts/_scoring.py` in
 # 2026-05 per DEFERRED.md #5. They're imported at the top of this file
-# and are still accessible as `search_arxiv.calculate_*_score` for
+# and are still accessible as `search_papers.calculate_*_score` for
 # backward compatibility with existing tests and call sites.
 
 

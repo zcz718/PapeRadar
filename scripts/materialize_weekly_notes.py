@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Materialize weekly recommendation notes for Obsidian or standalone output.
 
-`search_arxiv.py` creates the ranked `arxiv_filtered.json`; this script turns
+`search_papers.py` creates the ranked `arxiv_filtered.json`; this script turns
 that JSON into durable Markdown knowledge artifacts:
 
 * a weekly index note
@@ -34,7 +34,7 @@ if str(_HERE) not in sys.path:
 
 from _config_paths import resolve_config_path  # noqa: E402
 from _id_parser import parse_arxiv_id, parse_paper_id  # noqa: E402
-from search_arxiv import title_to_note_filename  # noqa: E402
+from search_papers import title_to_note_filename  # noqa: E402
 
 try:
     from save_to_zotero import (  # noqa: E402
