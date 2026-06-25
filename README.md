@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/paperadar-hero.png" alt="PapeRadar — a multi-source, personalized paper radar for AI-for-Science that files results into your Obsidian and Zotero" width="900">
+</p>
+
 # PapeRadar
 
 *Paper + Radar — a multi-source, personalized paper radar for AI-for-Science. Each week it files new work into your Obsidian/Zotero knowledge base as linked, trackable notes, and runs as a Claude Code / Codex skill.*
