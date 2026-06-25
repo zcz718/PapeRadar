@@ -1,6 +1,6 @@
 # PapeRadar
 
-*Paper + Radar — a weekly, personalized paper digest that runs as a Claude Code / Codex skill and files results straight into your Obsidian and Zotero.*
+*Paper + Radar — a multi-source, personalized paper radar for AI-for-Science. Each week it files new work into your Obsidian/Zotero knowledge base as linked, trackable notes, and runs as a Claude Code / Codex skill.*
 
 A weekly radar for the papers that matter to *you*. Point it at your research
 interests and it sweeps the past week across arXiv, Semantic Scholar, OpenAlex,
@@ -11,6 +11,14 @@ ranked note, written into your Obsidian vault or as plain Markdown in any folder
 It runs as a [Claude Code](https://www.anthropic.com/claude-code) / Codex skill,
 so you can just say *"run my weekly papers"* and read the results, or drive the
 scripts directly from the command line.
+
+## Why PapeRadar
+
+Most paper tools watch a **single source** (usually arXiv) and stop at a ranked list. PapeRadar is built for **AI-for-Science** — work that spans fields and needs more than one feed:
+
+- **Many sources, one personalized sweep.** arXiv, Semantic Scholar, OpenAlex, and Crossref together (plus PubMed/bioRxiv when relevant), all scored against *your* interests — not one site's firehose.
+- **Papers become knowledge, not a feed.** Results are filed into your Obsidian vault and Zotero as linked, per-paper notes — turning a week's reading into a Karpathy-style LLM wiki you can track ideas across.
+- **No infrastructure.** No database, no embedding service, no web app — it runs as a Claude Code / Codex skill and uses the agent itself to judge relevance.
 
 ## What it does
 
