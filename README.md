@@ -41,6 +41,22 @@ You can revisit it any time:
 > "What am I tracking?" · "Add diffusion models to my interests." · "Drop the
 > economics domain."
 
+## How it picks papers
+
+Selection runs in two stages — wide recall, then a precise cut:
+
+1. **Keyword retrieve.** Every enabled source is searched and scored against your
+   `keywords`, `arxiv_categories`, and `priority` weights, building a ranked
+   candidate pool.
+2. **Relevance rerank.** Run through the agent (Claude Code / Codex), it reads
+   each candidate against your `research_brief`, keeps the genuinely on-topic
+   ones, drops papers that only brushed a keyword, and backfills from the pool so
+   your note still comes out full. Run headless (cron, no agent) and it falls
+   back to the keyword ranking.
+
+The keyword layer casts a wide net; the brief-aware rerank tightens it. A clear
+`research_brief` is what makes that second stage sharp.
+
 ## Quickstart
 
 ```bash
@@ -95,6 +111,9 @@ python scripts/search_arxiv.py \
 python scripts/materialize_weekly_notes.py --input arxiv_filtered.json
 ```
 
+The brief-aware rerank is a skill step (it needs your `research_brief` and a
+model), so a pure command-line run uses the keyword ranking directly.
+
 The config is auto-detected from the standard locations; pass `--config` to
 override. Lookup order: `$OBSIDIAN_VAULT_PATH/99_System/Config/research_interests.yaml`,
 then `~/.config/paperadar/config.yaml`, then built-in defaults.
@@ -125,9 +144,9 @@ every discipline):
 | Setting | Source | Behaviour |
 |---|---|---|
 | `crossref.enabled: auto` | Crossref (~180M DOIs, all fields) | On by default — no key needed. Catches freshly-registered papers across every field, often before aggregators index them. |
-| `bio_sources: true` | bioRxiv, medRxiv, PubMed | Searched by default. Set `false` only to skip them (e.g. to keep a non-biomedical run lean). |
+| `bio_sources: auto` | bioRxiv, medRxiv, PubMed | Included automatically when your topics look biomedical (a `q-bio.*` category or a biomedical keyword), so non-biomedical fields stay clean. Set `true` to always search them, `false` to never. |
 | `openalex.enabled: auto` | OpenAlex (~270M works, all fields) | Needs `OPENALEX_API_KEY` ([free](https://openalex.org), under a minute) — a key is required to reach OpenAlex at all. Skipped silently without one. |
-| `core.enabled: auto` | CORE (~400M OA works) | Open-access repositories — theses, working papers, deposits. Needs `CORE_API_KEY` ([free](https://core.ac.uk/services/api)). Skipped without one. |
+| `core.enabled: false` | CORE (~400M OA works) | Open-access repositories — theses, working papers, deposits. Off by default: CORE surfaces recently-deposited (not newly-published) work that rarely changes a weekly list. Turn on with `auto`/`true` plus `CORE_API_KEY` ([free](https://core.ac.uk/services/api)). |
 
 Every source returns results in one schema and gets re-scored — source-neutrally
 — against your config, so adding a source only ever widens coverage.
@@ -139,9 +158,11 @@ empty to disable.
 
 **Scoring (advanced).** The defaults are tuned, but an optional `scoring:` block
 lets you set them from YAML instead of editing source: `min_relevance` (the
-inclusion gate — lower to see more), the title/abstract/category match weights,
-the recency buckets, and the `weights:` that blend the final ranking. See the
-commented block in `config.example.yaml`.
+inclusion gate — lower to see more), `min_keyword_matches` (distinct keyword hits
+a paper needs — `1` by default so the net stays wide and the rerank does the
+precision; raise to `2` for a stricter keyword-only cut on headless runs), the
+title/abstract/category match weights, the recency buckets, and the `weights:`
+that blend the final ranking. See the commented block in `config.example.yaml`.
 
 ### Environment variables
 
@@ -176,6 +197,7 @@ paperadar/
 │   ├── search_core.py        # CORE (open-access repositories)
 │   ├── search_biorxiv.py     # bioRxiv / medRxiv
 │   ├── search_pubmed.py      # PubMed via E-utilities
+│   ├── rerank_apply.py        # apply the agent's relevance rerank
 │   ├── materialize_weekly_notes.py  # weekly index + paper scaffolds
 │   ├── fetch_fulltext.py     # multi-source full-text/PDF fetch chain
 │   ├── generate_note.py      # PDF-verified deep-analysis note
